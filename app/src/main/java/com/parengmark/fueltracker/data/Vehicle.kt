@@ -1,0 +1,31 @@
+package com.parengmark.fueltracker.data
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+/** Whole-app unit system for a vehicle: picks distance unit, volume unit, and
+ * the natural economy unit together, so no cross-unit conversion is needed
+ * anywhere else in the app for v1. */
+enum class UnitSystem {
+    METRIC,   // km, liters
+    IMPERIAL  // miles, US gallons
+}
+
+/** Only meaningful when unitSystem == METRIC (imperial vehicles always show MPG). */
+enum class MetricEconomyDisplay {
+    KM_PER_L,
+    L_PER_100KM
+}
+
+@Entity(tableName = "vehicles")
+data class Vehicle(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val unitSystem: UnitSystem = UnitSystem.METRIC,
+    val metricEconomyDisplay: MetricEconomyDisplay = MetricEconomyDisplay.KM_PER_L,
+    val currencyCode: String = "PHP",
+    val createdAtEpochMillis: Long = System.currentTimeMillis()
+) {
+    val distanceUnitLabel: String get() = if (unitSystem == UnitSystem.METRIC) "km" else "mi"
+    val volumeUnitLabel: String get() = if (unitSystem == UnitSystem.METRIC) "L" else "gal"
+}

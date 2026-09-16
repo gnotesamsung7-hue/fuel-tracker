@@ -1,0 +1,214 @@
+// Reference implementation -- see reference/cloud-sync/README.md for how to
+// activate this. Not compiled as part of the delivered app.
+//
+// Rename to FirebaseSyncRepository.kt and place at:
+//   app/src/main/java/com/parengmark/fueltracker/data/sync/FirebaseSyncRepository.kt
+// after completing steps 1-4 in the README.
+
+package com.parengmark.fueltracker.data.sync
+
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import com.parengmark.fueltracker.data.AppDatabase
+import com.parengmark.fueltracker.data.FillUp
+import com.parengmark.fueltracker.data.MaintenanceReminder
+import com.parengmark.fueltracker.data.Vehicle
+import kotlinx.coroutines.tasks.await
+
+/**
+ * Push/pull sync against Firestore, following the spec's §3.2 local-first
+ * pattern: Room is still the only thing the UI reads from (nothing here
+ * changes that), this just reconciles Room with Firestore underneath it.
+ *
+ * Firestore layout (flat, one collection per entity under the user):
+ *   users/{uid}/vehicles/{vehicleId}
+ *   users/{uid}/fillups/{fillUpId}
+ *   users/{uid}/maintenanceReminders/{reminderId}
+ *
+ * Conflict resolution is last-write-wins by [updatedAtEpochMillis], which is
+ * adequate for a single-user, few-devices personal log -- see the spec's
+ * §3.2 for why field-level merging would be over-engineering here.
+ */
+class FirebaseSyncRepository(
+    private val db: AppDatabase,
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+) {
+    private val uid: String?
+        get() = auth.currentUser?.uid
+
+    /** Call after every local save/delete for a near-immediate push, and
+     * periodically (see SyncWorker.kt.txt) to also catch the pull direction. */
+    suspend fun sync() {
+        val userId = uid ?: return // not signed in yet -- see README step 6
+        pushVehicles(userId)
+        pushFillUps(userId)
+        pushMaintenanceReminders(userId)
+        pullVehicles(userId)
+        pullFillUps(userId)
+        pullMaintenanceReminders(userId)
+    }
+
+    // ---- Push (local pendingSync=true rows -> Firestore) ----
+
+    private suspend fun pushVehicles(userId: String) {
+        val dirty = db.vehicleDao().getAllPendingSync() // add this query per SyncMetadata.md
+        for (vehicle in dirty) {
+            firestore.collection("users").document(userId)
+                .collection("vehicles").document(vehicle.id.toString())
+                .set(vehicle.toFirestoreMap(), SetOptions.merge())
+                .await()
+            db.vehicleDao().update(vehicle.copy(pendingSync = false))
+        }
+    }
+
+    private suspend fun pushFillUps(userId: String) {
+        val dirty = db.fillUpDao().getAllPendingSync() // add this query per SyncMetadata.md
+        for (fillUp in dirty) {
+            firestore.collection("users").document(userId)
+                .collection("fillups").document(fillUp.id.toString())
+                .set(fillUp.toFirestoreMap(), SetOptions.merge())
+                .await()
+            db.fillUpDao().update(fillUp.copy(pendingSync = false))
+        }
+    }
+
+    private suspend fun pushMaintenanceReminders(userId: String) {
+        val dirty = db.maintenanceReminderDao().getAllPendingSync() // add per SyncMetadata.md
+        for (reminder in dirty) {
+            firestore.collection("users").document(userId)
+                .collection("maintenanceReminders").document(reminder.id.toString())
+                .set(reminder.toFirestoreMap(), SetOptions.merge())
+                .await()
+            db.maintenanceReminderDao().update(reminder.copy(pendingSync = false))
+        }
+    }
+
+    // ---- Pull (Firestore -> Room, upsert by id) ----
+
+    private suspend fun pullVehicles(userId: String) {
+        val snapshot = firestore.collection("users").document(userId)
+            .collection("vehicles").get().await()
+        for (doc in snapshot.documents) {
+            val vehicle = doc.toVehicle() ?: continue
+            val local = db.vehicleDao().getById(vehicle.id)
+            if (local == null || vehicle.updatedAtEpochMillis > local.updatedAtEpochMillis) {
+                db.vehicleDao().upsert(vehicle.copy(pendingSync = false))
+            }
+        }
+    }
+
+    private suspend fun pullFillUps(userId: String) {
+        val snapshot = firestore.collection("users").document(userId)
+            .collection("fillups").get().await()
+        for (doc in snapshot.documents) {
+            val fillUp = doc.toFillUp() ?: continue
+            // A real implementation adds FillUpDao.getById(id) the same way
+            // VehicleDao has one, to compare updatedAtEpochMillis before
+            // overwriting -- omitted here for brevity.
+            db.fillUpDao().upsert(fillUp.copy(pendingSync = false))
+        }
+    }
+
+    private suspend fun pullMaintenanceReminders(userId: String) {
+        val snapshot = firestore.collection("users").document(userId)
+            .collection("maintenanceReminders").get().await()
+        for (doc in snapshot.documents) {
+            val reminder = doc.toMaintenanceReminder() ?: continue
+            db.maintenanceReminderDao().upsert(reminder.copy(pendingSync = false))
+        }
+    }
+}
+
+// ---- Firestore <-> entity mapping ----
+// Deliberately plain Map<String, Any?> rather than Firestore's @DocumentId /
+// data-class (de)serialization, so this stays independent of exactly which
+// sync columns you added and in what order per SyncMetadata.md.
+
+private fun Vehicle.toFirestoreMap(): Map<String, Any?> = mapOf(
+    "id" to id,
+    "name" to name,
+    "unitSystem" to unitSystem.name,
+    "metricEconomyDisplay" to metricEconomyDisplay.name,
+    "currencyCode" to currencyCode,
+    "createdAtEpochMillis" to createdAtEpochMillis,
+    "updatedAtEpochMillis" to updatedAtEpochMillis,
+    "deletedAt" to deletedAt
+)
+
+private fun com.google.firebase.firestore.DocumentSnapshot.toVehicle(): Vehicle? {
+    val id = getLong("id") ?: return null
+    return Vehicle(
+        id = id,
+        name = getString("name") ?: return null,
+        unitSystem = runCatching {
+            com.parengmark.fueltracker.data.UnitSystem.valueOf(getString("unitSystem") ?: "METRIC")
+        }.getOrDefault(com.parengmark.fueltracker.data.UnitSystem.METRIC),
+        metricEconomyDisplay = runCatching {
+            com.parengmark.fueltracker.data.MetricEconomyDisplay.valueOf(
+                getString("metricEconomyDisplay") ?: "KM_PER_L"
+            )
+        }.getOrDefault(com.parengmark.fueltracker.data.MetricEconomyDisplay.KM_PER_L),
+        currencyCode = getString("currencyCode") ?: "PHP",
+        createdAtEpochMillis = getLong("createdAtEpochMillis") ?: System.currentTimeMillis(),
+        updatedAtEpochMillis = getLong("updatedAtEpochMillis") ?: System.currentTimeMillis(),
+        deletedAt = getLong("deletedAt")
+    )
+}
+
+private fun FillUp.toFirestoreMap(): Map<String, Any?> = mapOf(
+    "id" to id,
+    "vehicleId" to vehicleId,
+    "dateEpochMillis" to dateEpochMillis,
+    "odometer" to odometer,
+    "volume" to volume,
+    "totalCost" to totalCost,
+    "fullTank" to fullTank,
+    "stationName" to stationName,
+    "notes" to notes,
+    "updatedAtEpochMillis" to updatedAtEpochMillis,
+    "deletedAt" to deletedAt
+)
+
+private fun com.google.firebase.firestore.DocumentSnapshot.toFillUp(): FillUp? {
+    val id = getLong("id") ?: return null
+    val vehicleId = getLong("vehicleId") ?: return null
+    return FillUp(
+        id = id,
+        vehicleId = vehicleId,
+        dateEpochMillis = getLong("dateEpochMillis") ?: return null,
+        odometer = getDouble("odometer") ?: return null,
+        volume = getDouble("volume") ?: return null,
+        totalCost = getDouble("totalCost") ?: return null,
+        fullTank = getBoolean("fullTank") ?: true,
+        stationName = getString("stationName"),
+        notes = getString("notes")
+    )
+}
+
+private fun MaintenanceReminder.toFirestoreMap(): Map<String, Any?> = mapOf(
+    "id" to id,
+    "vehicleId" to vehicleId,
+    "type" to type,
+    "intervalDistance" to intervalDistance,
+    "intervalDays" to intervalDays,
+    "lastDoneOdometer" to lastDoneOdometer,
+    "lastDoneDateMillis" to lastDoneDateMillis,
+    "updatedAtEpochMillis" to updatedAtEpochMillis,
+    "deletedAt" to deletedAt
+)
+
+private fun com.google.firebase.firestore.DocumentSnapshot.toMaintenanceReminder(): MaintenanceReminder? {
+    val id = getLong("id") ?: return null
+    val vehicleId = getLong("vehicleId") ?: return null
+    return MaintenanceReminder(
+        id = id,
+        vehicleId = vehicleId,
+        type = getString("type") ?: return null,
+        intervalDistance = getDouble("intervalDistance"),
+        intervalDays = getLong("intervalDays")?.toInt(),
+        lastDoneOdometer = getDouble("lastDoneOdometer"),
+        lastDoneDateMillis = getLong("lastDoneDateMillis")
+    )
+}

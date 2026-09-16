@@ -1,0 +1,46 @@
+// Reference implementation -- see reference/cloud-sync/README.md.
+// Rename to SyncWorker.kt and place at:
+//   app/src/main/java/com/parengmark/fueltracker/work/SyncWorker.kt
+
+package com.parengmark.fueltracker.work
+
+import android.content.Context
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
+import com.parengmark.fueltracker.FuelTrackerApp
+import com.parengmark.fueltracker.data.sync.FirebaseSyncRepository
+
+class SyncWorker(
+    context: Context,
+    params: WorkerParameters
+) : CoroutineWorker(context, params) {
+
+    override suspend fun doWork(): Result {
+        val database = (applicationContext as FuelTrackerApp).database
+        return try {
+            FirebaseSyncRepository(database).sync()
+            Result.success()
+        } catch (e: Exception) {
+            Result.retry()
+        }
+    }
+}
+
+// In FuelTrackerApp.kt, alongside scheduleDailyMaintenanceCheck():
+//
+// private fun scheduleSync() {
+//     val constraints = Constraints.Builder()
+//         .setRequiredNetworkType(NetworkType.CONNECTED)
+//         .build()
+//     val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+//         .setConstraints(constraints)
+//         .build()
+//     WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+//         "cloud-sync", ExistingPeriodicWorkPolicy.KEEP, request
+//     )
+// }
+//
+// And call scheduleSync() from onCreate(). For a near-immediate push after
+// each local save (rather than waiting up to 15 minutes), also enqueue a
+// one-off OneTimeWorkRequestBuilder<SyncWorker>() from FuelRepository's
+// save/delete methods once the sync columns from SyncMetadata.md are in place.

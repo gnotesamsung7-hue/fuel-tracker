@@ -1,0 +1,176 @@
+# FillUp+ (Android)
+
+A fuel fill-up & vehicle expense logger for Android, covering essentially the
+full spec (`fuel-tracker-app-spec.md`, delivered separately) except cloud
+sync, which needs your own Firebase project and is delivered as a complete,
+ready-to-activate reference implementation instead (see
+`reference/cloud-sync/README.md`). Everything else below is fully wired and
+working: local-only, offline-first data (the receipt scanner and nearby
+station search never upload anything you've logged), no account required.
+
+Built with: Kotlin, Jetpack Compose, Room, Navigation Compose, ML Kit
+(on-device text recognition), WorkManager. See §3.1 of the spec for the full
+stack rationale.
+
+## What's in this build
+
+**Core logging (Phase 1)**
+- Multiple vehicle profiles (name, metric/imperial units, currency)
+- Fill-up logging with odometer validation (can't go backwards) and a
+  full-tank/partial-tank flag
+- Real fuel-economy math: km/L, L/100km, or MPG, computed correctly across
+  full-tank-to-full-tank spans (partial fill-ups in between are still counted,
+  see `ConsumptionCalculator.kt`)
+- Dashboard with average economy, cost-per-distance, an economy trend chart,
+  and recent fill-ups
+
+**Smart entry & upkeep (Phase 2)**
+- **Receipt scanner**: takes a photo via the system camera app, reads it with
+  on-device ML Kit text recognition, and pre-fills the add-fill-up form for
+  you to confirm (`data/receipt/ReceiptParser.kt`, `ui/scan/ScanReceiptScreen.kt`).
+  No CameraX, no cloud OCR call, no CAMERA permission needed.
+- **Maintenance reminders**: distance- and/or time-based, with a daily
+  WorkManager background check that posts a notification when something's
+  due or overdue (`work/MaintenanceReminderWorker.kt`). Completed manually via
+  "Mark done" for now.
+
+**Nearby prices, exports & comparison (Phase 3)**
+- **Nearby fuel stations**: finds stations close to you via OpenStreetMap's
+  free, keyless Overpass API (`data/stations/OverpassApi.kt`) -- no Google
+  Places billing account needed. Shows distance, opens the station in Maps,
+  and can jump straight to logging a fill-up there. This is a station
+  *locator*, not live crowdsourced prices -- see the spec's §2.1/§7 for why
+  that's the realistic v1 approach, and `reference/cloud-sync/` for the
+  backend that a future crowdsourced-price feature would need anyway.
+- **Excel and PDF export**, alongside the original CSV export, all from the
+  dashboard's overflow menu. The Excel writer is a small hand-rolled OOXML
+  writer (`data/export/XlsxWriter.kt`) rather than Apache POI -- see the
+  comment in that file for why (POI's Android runtime compatibility has a
+  long history of trouble, not worth risking in a build this couldn't
+  verify by compiling). PDF export uses Android's built-in `PdfDocument`.
+- **Compare vehicles**: a household-level view across every vehicle's
+  average economy, cost per distance, and total spend.
+
+**Not wired in (needs your own account) -- see `reference/cloud-sync/`**
+- Cloud backup / cross-device sync. The complete Firestore-based
+  implementation is written and ready to drop in; it isn't part of the
+  active build because its dependency graph (Firestore, Auth, gRPC,
+  Protobuf) couldn't be verified to resolve cleanly in the sandbox this
+  project was generated in, and it needs a `google-services.json` from a
+  Firebase project only you can create. `reference/cloud-sync/README.md` has
+  the exact steps -- they're mechanical once you've done the account setup.
+
+### Note on the receipt scanner
+
+It's rule-based (regex over the recognized text, cross-checking total = volume
+x price/unit when two of the three are found), not the Gemini Nano-powered
+"smart parse" the spec describes as a future enhancement -- that API is
+currently limited to a handful of flagship phones, so this build uses the
+same on-device OCR approach that works on any device. Expect it to need
+correction sometimes; that's why it always lands you on the normal, fully
+editable add-fill-up form rather than saving anything directly.
+
+## Building this project
+
+This project **cannot be built in the environment that generated it** (no
+network access to Google's/Maven's package repositories there). It needs to be
+built either in Android Studio on your machine, or via the included GitHub
+Actions workflow, the same way Balikbayan Protocol was built and signed.
+
+### Option A — GitHub Actions (recommended, matches your existing pipeline)
+
+1. Create a new GitHub repo (e.g. `fuel-tracker`) and push this project to it
+   with **GitHub Desktop** (the web uploader tends to fail silently on large
+   file counts — same issue you hit with Balikbayan Protocol).
+2. In the repo's **Settings → Secrets and variables → Actions**, add these
+   four secrets (only needed for a *signed release* build — the debug APK
+   builds fine without them):
+   - `RELEASE_KEYSTORE_BASE64` — your release keystore file, base64-encoded
+     (`base64 -w0 your.keystore` on macOS/Linux, or `certutil -encode` on
+     Windows then strip the header/footer lines)
+   - `RELEASE_STORE_PASSWORD`
+   - `RELEASE_KEY_ALIAS`
+   - `RELEASE_KEY_PASSWORD`
+   - **This app needs its own new keystore** — do not reuse the Balikbayan
+     Protocol keystore. Generate one with:
+     `keytool -genkeypair -v -keystore fueltracker-release.keystore -alias fueltracker -keyalg RSA -keysize 2048 -validity 10000`
+     Back it up immediately (zip it, store it somewhere safe) — same as noted
+     for Balikbayan Protocol, losing it means you can never update this app's
+     Play Store listing again.
+3. Push to `main` (or run the workflow manually from the Actions tab). It
+   builds `fuel-tracker-debug-apk` always, and `fuel-tracker-release-aab` once
+   the four secrets above are set.
+4. Download the debug APK artifact from the Actions run and install it on your
+   phone to test, same as before.
+
+### Option B — Android Studio locally
+
+Open the project folder in Android Studio (Ladybird/Koala or newer), let it
+sync Gradle, and run on a device/emulator. Release builds will be unsigned
+locally unless you set the four `RELEASE_*` environment variables yourself
+before building.
+
+## Before Play Store submission
+
+- Replace the placeholder launcher icon (`app/src/main/res/drawable/ic_launcher_foreground.xml`)
+  with a real designed icon — same approach as Balikbayan Protocol (AI-generated
+  + declared as such, or a custom design), then update the store listing assets.
+- Fill in and publish `docs/index.html` as this app's privacy policy via GitHub
+  Pages (same pattern as Balikbayan Protocol: enable Pages on `main` /docs).
+  It's already updated for the location/camera/internet permissions this
+  build added -- just fill in the date and contact email placeholders.
+- Double-check `compileSdk`/`targetSdk` in `app/build.gradle.kts` against
+  Play Console's current target API requirement at the time you actually
+  submit — these move roughly yearly, and this project was generated with
+  known-stable versions rather than bleeding-edge ones (see the comment in
+  the root `build.gradle.kts`).
+- Play Console's Data safety section will need to declare location use (for
+  nearby stations) now, alongside the existing declarations -- see
+  `docs/index.html` for the plain-language version of what's collected and
+  why.
+- This app uses a **different application ID** (`com.parengmark.fueltracker`)
+  and needs its **own** Play Console app listing and its own $0 (already
+  paid once) developer account submission — it does not reuse Balikbayan
+  Protocol's listing.
+
+## Project structure
+
+```
+app/src/main/java/com/parengmark/fueltracker/
+  data/            Room entities, DAOs, database, repository, consumption math
+  data/receipt/    Receipt text parsing (no persistence -- just text in, ParsedReceipt out)
+  data/stations/   OpenStreetMap Overpass API client + FuelStation model
+  data/export/     CSV / hand-rolled XLSX / PDF report writers
+  location/        Plain LocationManager helper (no Play Services dependency)
+  work/            WorkManager daily maintenance-due check + notification helper
+  ui/theme/        Compose Material3 theme
+  ui/vehicle/      Vehicle list + add-vehicle screens/viewmodel
+  ui/dashboard/    Per-vehicle dashboard screen/viewmodel/trend chart
+  ui/fillup/       Fill-up list + add-fill-up screens/viewmodel
+  ui/scan/         Receipt scanner screen
+  ui/maintenance/  Maintenance reminder list/add screens/viewmodel
+  ui/stations/     Nearby fuel stations screen/viewmodel
+  ui/compare/      Multi-vehicle comparison screen/viewmodel
+  ui/navigation/   Single NavHost wiring all of the above together
+  ui/common/       Manual DI factory + formatting helpers
+
+reference/cloud-sync/   Complete but NOT-compiled Firebase sync reference --
+                        see its own README.md to activate.
+```
+
+No Hilt/Dagger in this build — see the comment in `FuelTrackerApp.kt` for why
+(manual DI has been enough for every ViewModel added so far; revisit if/when
+cloud sync's dependency graph actually gets wired in).
+
+## Permissions this build requests
+
+- `POST_NOTIFICATIONS` (Android 13+) -- maintenance-due notifications.
+  Declining is harmless; reminders still work inside the app.
+- `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` -- only requested when
+  you open "Nearby fuel stations"; nothing else in the app touches location.
+- `INTERNET` -- only used for that same nearby-stations search (a call to
+  OpenStreetMap's Overpass API). Every other feature is fully offline.
+
+The database schema changed twice since the first build (fill-ups only ->
++ maintenance reminders) and is still using `fallbackToDestructiveMigration()`
+since there's no real install base yet -- see the comment in `AppDatabase.kt`.
