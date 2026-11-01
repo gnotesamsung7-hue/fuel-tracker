@@ -23,7 +23,7 @@ object CsvExporter {
         val sb = StringBuilder()
         sb.append("Date,Odometer (${vehicle.distanceUnitLabel}),Volume (${vehicle.volumeUnitLabel}),")
             .append("Total Cost (${vehicle.currencyCode}),Price per ${vehicle.volumeUnitLabel},")
-            .append("Full Tank,Station,Notes\n")
+            .append("Full Tank,Fuel Grade,Station,Notes\n")
 
         fillUps.sortedByDescending { it.odometer }.forEach { f ->
             sb.append(dateFormat.format(f.dateEpochMillis)).append(',')
@@ -32,6 +32,7 @@ object CsvExporter {
             sb.append(f.totalCost).append(',')
             sb.append("%.3f".format(f.pricePerUnit)).append(',')
             sb.append(if (f.fullTank) "yes" else "no").append(',')
+            sb.append(csvEscape(f.fuelGrade)).append(',')
             sb.append(csvEscape(f.stationName)).append(',')
             sb.append(csvEscape(f.notes)).append('\n')
         }

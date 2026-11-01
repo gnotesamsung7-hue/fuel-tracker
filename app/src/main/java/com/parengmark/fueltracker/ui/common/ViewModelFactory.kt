@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.parengmark.fueltracker.data.FuelRepository
+import com.parengmark.fueltracker.ui.art.ArtStudioViewModel
 import com.parengmark.fueltracker.ui.compare.CompareVehiclesViewModel
 import com.parengmark.fueltracker.ui.dashboard.DashboardViewModel
 import com.parengmark.fueltracker.ui.expense.ExpenseViewModel
@@ -25,6 +26,8 @@ class AppViewModelFactory(private val repository: FuelRepository) : ViewModelPro
                 FillUpViewModel(repository) as T
             modelClass.isAssignableFrom(MaintenanceViewModel::class.java) ->
                 MaintenanceViewModel(repository) as T
+            modelClass.isAssignableFrom(ArtStudioViewModel::class.java) ->
+                ArtStudioViewModel(repository) as T
             modelClass.isAssignableFrom(ExpenseViewModel::class.java) ->
                 ExpenseViewModel(repository) as T
             modelClass.isAssignableFrom(CompareVehiclesViewModel::class.java) ->

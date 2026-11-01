@@ -24,7 +24,10 @@ data class Vehicle(
     val unitSystem: UnitSystem = UnitSystem.METRIC,
     val metricEconomyDisplay: MetricEconomyDisplay = MetricEconomyDisplay.KM_PER_L,
     val currencyCode: String = "PHP",
-    val createdAtEpochMillis: Long = System.currentTimeMillis()
+    val createdAtEpochMillis: Long = System.currentTimeMillis(),
+    /** The user's pixel drawing of this car from the Art studio, encoded by
+     * [com.parengmark.fueltracker.ui.art.PixelArt]. Null = nothing drawn yet. */
+    val pixelArt: String? = null
 ) {
     val distanceUnitLabel: String get() = if (unitSystem == UnitSystem.METRIC) "km" else "mi"
     val volumeUnitLabel: String get() = if (unitSystem == UnitSystem.METRIC) "L" else "gal"

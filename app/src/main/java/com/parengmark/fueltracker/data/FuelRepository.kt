@@ -11,6 +11,16 @@ class FuelRepository(private val db: AppDatabase) {
 
     suspend fun getVehicle(id: Long): Vehicle? = db.vehicleDao().getById(id)
 
+    fun observeVehicle(id: Long): Flow<Vehicle?> = db.vehicleDao().observeById(id)
+
+    /** Saves the Art studio drawing. Uses @Update rather than the REPLACE
+     * upsert on purpose: REPLACE deletes and re-inserts the row, which would
+     * cascade-delete the vehicle's fill-ups and expenses. */
+    suspend fun saveVehicleArt(vehicleId: Long, pixelArt: String?) {
+        val vehicle = db.vehicleDao().getById(vehicleId) ?: return
+        db.vehicleDao().update(vehicle.copy(pixelArt = pixelArt))
+    }
+
     suspend fun saveVehicle(vehicle: Vehicle): Long = db.vehicleDao().upsert(vehicle)
 
     suspend fun updateVehicle(vehicle: Vehicle) = db.vehicleDao().update(vehicle)

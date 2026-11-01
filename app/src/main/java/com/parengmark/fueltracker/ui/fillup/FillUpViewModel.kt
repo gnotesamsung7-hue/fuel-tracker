@@ -29,12 +29,18 @@ class FillUpViewModel(private val repository: FuelRepository) : ViewModel() {
 
     private var loadedVehicleId: Long? = null
     private var collectJob: Job? = null
+    private var vehicleJob: Job? = null
 
     fun load(vehicleId: Long) {
         if (loadedVehicleId == vehicleId) return
         loadedVehicleId = vehicleId
 
-        viewModelScope.launch { _vehicle.value = repository.getVehicle(vehicleId) }
+        // Observed rather than read once, so a drawing saved in the Art
+        // studio shows up as soon as you come back to the form.
+        vehicleJob?.cancel()
+        vehicleJob = viewModelScope.launch {
+            repository.observeVehicle(vehicleId).collect { _vehicle.value = it }
+        }
 
         collectJob?.cancel()
         collectJob = viewModelScope.launch {
@@ -62,6 +68,7 @@ class FillUpViewModel(private val repository: FuelRepository) : ViewModel() {
         fullTank: Boolean,
         stationName: String?,
         notes: String?,
+        fuelGrade: String? = null,
         onSaved: () -> Unit
     ) {
         if (odometer < 0) {
@@ -88,7 +95,8 @@ class FillUpViewModel(private val repository: FuelRepository) : ViewModel() {
                     totalCost = totalCost,
                     fullTank = fullTank,
                     stationName = stationName?.trim()?.ifBlank { null },
-                    notes = notes?.trim()?.ifBlank { null }
+                    notes = notes?.trim()?.ifBlank { null },
+                    fuelGrade = fuelGrade
                 )
             )
             onSaved()

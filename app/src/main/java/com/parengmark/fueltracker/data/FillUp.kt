@@ -38,10 +38,27 @@ data class FillUp(
     val totalCost: Double,
     val fullTank: Boolean = true,
     val stationName: String? = null,
-    val notes: String? = null
+    val notes: String? = null,
+    /** Octane/fuel grade as picked on the form, e.g. "RON 95" or "Diesel".
+     * Null for fill-ups logged before v0.5 or when left unset. */
+    val fuelGrade: String? = null
 ) {
     /** Derived, not stored -- always recomputed from volume/cost so the two can
      * never drift apart from rounding on save. */
     val pricePerUnit: Double
         get() = if (volume > 0) totalCost / volume else 0.0
+}
+
+/** Fuel grades offered as one-tap chips on the add fill-up form. Stored as the
+ * [stored] text so new grades can be added later without a migration. */
+object FuelGrades {
+    data class Grade(val stored: String, val chip: String)
+
+    val all = listOf(
+        Grade("RON 91", "91 Regular"),
+        Grade("RON 95", "95 Premium"),
+        Grade("RON 97", "97 Super"),
+        Grade("RON 100", "100"),
+        Grade("Diesel", "Diesel")
+    )
 }

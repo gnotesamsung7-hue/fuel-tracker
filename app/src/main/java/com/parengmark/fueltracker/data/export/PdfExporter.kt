@@ -83,7 +83,7 @@ object PdfExporter {
         canvas.drawText("Odometer", col2, y, headerPaint)
         canvas.drawText("Volume", col3, y, headerPaint)
         canvas.drawText("Cost", col4, y, headerPaint)
-        canvas.drawText("Station", col5, y, headerPaint)
+        canvas.drawText("Grade / station", col5, y, headerPaint)
         y += LINE_HEIGHT
 
         for (f in sorted) {
@@ -92,7 +92,7 @@ object PdfExporter {
             canvas.drawText(f.odometer.toString(), col2, y, bodyPaint)
             canvas.drawText(f.volume.toString(), col3, y, bodyPaint)
             canvas.drawText(Formatting.money(f.totalCost, vehicle.currencyCode), col4, y, bodyPaint)
-            canvas.drawText((f.stationName ?: "").take(24), col5, y, bodyPaint)
+            canvas.drawText(listOfNotNull(f.fuelGrade, f.stationName).joinToString(" · ").take(28), col5, y, bodyPaint)
             y += LINE_HEIGHT
         }
 

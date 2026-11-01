@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.parengmark.fueltracker.data.ConsumptionCalculator
+import com.parengmark.fueltracker.ui.art.PumpBuddyFab
 import com.parengmark.fueltracker.data.CsvExporter
 import com.parengmark.fueltracker.data.export.PdfExporter
 import com.parengmark.fueltracker.data.export.XlsxExporter
@@ -58,6 +59,7 @@ fun DashboardScreen(
     onCompareVehicles: () -> Unit,
     onOpenExpenses: () -> Unit,
     onAddExpense: () -> Unit,
+    onOpenArtStudio: () -> Unit,
     onViewAllFillUps: () -> Unit,
     onSwitchVehicle: () -> Unit
 ) {
@@ -109,6 +111,10 @@ fun DashboardScreen(
                             onClick = { menuExpanded = false; onOpenMaintenance() }
                         )
                         DropdownMenuItem(
+                            text = { Text("Art studio: draw your car") },
+                            onClick = { menuExpanded = false; onOpenArtStudio() }
+                        )
+                        DropdownMenuItem(
                             text = { Text("Compare vehicles") },
                             onClick = { menuExpanded = false; onCompareVehicles() }
                         )
@@ -147,9 +153,7 @@ fun DashboardScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddFillUp) {
-                Icon(Icons.Filled.Add, contentDescription = "Add fill-up")
-            }
+            PumpBuddyFab(onClick = onAddFillUp)
         }
     ) { padding ->
         val v = vehicle
@@ -234,6 +238,7 @@ fun DashboardScreen(
                                 Text(
                                     "${fillUp.volume} ${v.volumeUnitLabel} · " +
                                         Formatting.money(fillUp.totalCost, v.currencyCode) +
+                                        (fillUp.fuelGrade?.let { " · $it" } ?: "") +
                                         if (!fillUp.fullTank) " · partial" else "",
                                     style = MaterialTheme.typography.bodyMedium
                                 )

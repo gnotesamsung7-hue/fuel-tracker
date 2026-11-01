@@ -9,6 +9,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.parengmark.fueltracker.data.ExpenseCategory
 import com.parengmark.fueltracker.data.FuelRepository
+import com.parengmark.fueltracker.ui.art.ArtStudioScreen
+import com.parengmark.fueltracker.ui.art.ArtStudioViewModel
 import com.parengmark.fueltracker.ui.common.AppViewModelFactory
 import com.parengmark.fueltracker.ui.compare.CompareVehiclesScreen
 import com.parengmark.fueltracker.ui.compare.CompareVehiclesViewModel
@@ -43,6 +45,7 @@ private object Routes {
     const val NEARBY_STATIONS = "nearbyStations/{vehicleId}"
     const val COMPARE_VEHICLES = "compareVehicles"
     const val EXPENSES = "expenses/{vehicleId}"
+    const val ART_STUDIO = "artStudio/{vehicleId}"
     const val ADD_EXPENSE = "addExpense/{vehicleId}?expenseId={expenseId}&category={category}&note={note}"
 
     fun dashboard(vehicleId: Long) = "dashboard/$vehicleId"
@@ -58,6 +61,7 @@ private object Routes {
     fun addMaintenance(vehicleId: Long) = "addMaintenance/$vehicleId"
     fun nearbyStations(vehicleId: Long) = "nearbyStations/$vehicleId"
     fun expenses(vehicleId: Long) = "expenses/$vehicleId"
+    fun artStudio(vehicleId: Long) = "artStudio/$vehicleId"
     fun addExpense(
         vehicleId: Long,
         expenseId: Long? = null,
@@ -116,6 +120,7 @@ fun AppNavigation(repository: FuelRepository) {
                 onCompareVehicles = { navController.navigate(Routes.COMPARE_VEHICLES) },
                 onOpenExpenses = { navController.navigate(Routes.expenses(vehicleId)) },
                 onAddExpense = { navController.navigate(Routes.addExpense(vehicleId)) },
+                onOpenArtStudio = { navController.navigate(Routes.artStudio(vehicleId)) },
                 onViewAllFillUps = { navController.navigate(Routes.fillUps(vehicleId)) },
                 onSwitchVehicle = { navController.popBackStack(Routes.VEHICLES, inclusive = false) }
             )
@@ -153,7 +158,8 @@ fun AppNavigation(repository: FuelRepository) {
                 onBack = { navController.popBackStack() },
                 initialVolumeText = dec(backStackEntry.arguments?.getString("volume")),
                 initialCostText = dec(backStackEntry.arguments?.getString("cost")),
-                initialStationText = dec(backStackEntry.arguments?.getString("station"))
+                initialStationText = dec(backStackEntry.arguments?.getString("station")),
+                onOpenArtStudio = { navController.navigate(Routes.artStudio(vehicleId)) }
             )
         }
 
@@ -274,6 +280,20 @@ fun AppNavigation(repository: FuelRepository) {
                 initialCategory = initialCategory,
                 initialNotes = dec(backStackEntry.arguments?.getString("note")),
                 onSaved = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            Routes.ART_STUDIO,
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: return@composable
+            val vm: ArtStudioViewModel = viewModel(factory = factory)
+            ArtStudioScreen(
+                viewModel = vm,
+                vehicleId = vehicleId,
+                onDone = { navController.popBackStack() },
                 onBack = { navController.popBackStack() }
             )
         }

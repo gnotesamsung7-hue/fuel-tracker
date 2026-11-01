@@ -26,6 +26,7 @@ object XlsxExporter {
             "Total Cost (${vehicle.currencyCode})",
             "Price per ${vehicle.volumeUnitLabel}",
             "Full Tank",
+            "Fuel Grade",
             "Station",
             "Notes"
         )
@@ -37,6 +38,7 @@ object XlsxExporter {
                 f.totalCost,
                 Math.round(f.pricePerUnit * 1000) / 1000.0,
                 f.fullTank,
+                f.fuelGrade ?: "",
                 f.stationName ?: "",
                 f.notes ?: ""
             )

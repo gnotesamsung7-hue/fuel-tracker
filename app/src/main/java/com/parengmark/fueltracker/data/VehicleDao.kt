@@ -14,6 +14,9 @@ interface VehicleDao {
     fun observeAll(): Flow<List<Vehicle>>
 
     @Query("SELECT * FROM vehicles WHERE id = :id")
+    fun observeById(id: Long): Flow<Vehicle?>
+
+    @Query("SELECT * FROM vehicles WHERE id = :id")
     suspend fun getById(id: Long): Vehicle?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

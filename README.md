@@ -46,6 +46,17 @@ stack rationale.
   Excel (second sheet) and PDF exports.
 - Database v2 -> v3 uses a real migration, so existing logs are kept.
 
+**Fuel price, octane & Art studio (v0.5)**
+- Add fill-up now has Price per L, Volume and Total: type any two and the
+  third is calculated. "Use last price" fills in the previous price.
+- Octane / fuel chips (91 Regular, 95 Premium, 97 Super, 100, Diesel),
+  defaulting to the grade used last time. Shown in lists and all exports.
+- Art studio (dashboard menu): draw your car on a 32x16 pixel grid with a
+  16-color palette, pencil, eraser, fill, undo, flip, and a starter car.
+  The drawing shows faintly behind the Add fill-up form.
+- The add fill-up button is an animated pixel pump attendant with a + badge.
+- Database v3 -> v4 adds two columns with a real migration; data is kept.
+
 **Nearby prices, exports & comparison (Phase 3)**
 - **Nearby fuel stations**: finds stations close to you via OpenStreetMap's
   free, keyless Overpass API (`data/stations/OverpassApi.kt`) -- no Google

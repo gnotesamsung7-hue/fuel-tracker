@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Vehicle::class, FillUp::class, MaintenanceReminder::class, Expense::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -49,6 +49,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v3 -> v4: octane/fuel grade on fill-ups, Art studio drawing on vehicles.
+         * Both nullable columns, so existing rows simply get NULL. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `fillups` ADD COLUMN `fuelGrade` TEXT")
+                db.execSQL("ALTER TABLE `vehicles` ADD COLUMN `pixelArt` TEXT")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -56,9 +65,9 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "fuel-tracker.db"
                 )
-                    .addMigrations(MIGRATION_2_3)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                     // Only used for a version jump with no migration path
-                    // (e.g. a v1 test install). v2 -> v3 keeps your data.
+                    // (e.g. a v1 test install). v2 -> v3 -> v4 keeps your data.
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }
