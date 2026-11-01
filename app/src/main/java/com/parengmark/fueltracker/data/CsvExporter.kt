@@ -13,7 +13,12 @@ import java.util.Locale
  * Excel/PDF export once cloud sync/accounts exist. */
 object CsvExporter {
 
-    fun export(context: Context, vehicle: Vehicle, fillUps: List<FillUp>): Uri {
+    fun export(
+        context: Context,
+        vehicle: Vehicle,
+        fillUps: List<FillUp>,
+        expenses: List<Expense> = emptyList()
+    ): Uri {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val sb = StringBuilder()
         sb.append("Date,Odometer (${vehicle.distanceUnitLabel}),Volume (${vehicle.volumeUnitLabel}),")
@@ -29,6 +34,21 @@ object CsvExporter {
             sb.append(if (f.fullTank) "yes" else "no").append(',')
             sb.append(csvEscape(f.stationName)).append(',')
             sb.append(csvEscape(f.notes)).append('\n')
+        }
+
+        if (expenses.isNotEmpty()) {
+            // Second table in the same file, after a blank line -- Excel and
+            // Google Sheets open it fine, and it keeps export to one file.
+            sb.append('\n').append("Expenses\n")
+            sb.append("Date,Category,Amount (${vehicle.currencyCode}),Odometer (${vehicle.distanceUnitLabel}),Shop,Notes\n")
+            expenses.sortedByDescending { it.dateEpochMillis }.forEach { e ->
+                sb.append(dateFormat.format(e.dateEpochMillis)).append(',')
+                sb.append(csvEscape(e.category.label)).append(',')
+                sb.append(e.amount).append(',')
+                sb.append(e.odometer?.toString() ?: "").append(',')
+                sb.append(csvEscape(e.vendor)).append(',')
+                sb.append(csvEscape(e.notes)).append('\n')
+            }
         }
 
         val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }

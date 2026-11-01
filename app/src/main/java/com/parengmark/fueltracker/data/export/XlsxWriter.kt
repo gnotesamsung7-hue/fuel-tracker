@@ -17,12 +17,18 @@ import java.util.zip.ZipOutputStream
  */
 object XlsxWriter {
 
+    class Sheet(val name: String, val headers: List<String>, val rows: List<List<Any?>>)
+
     fun write(
         outputStream: OutputStream,
         sheetName: String,
         headers: List<String>,
         rows: List<List<Any?>>
-    ) {
+    ) = writeSheets(outputStream, listOf(Sheet(sheetName, headers, rows)))
+
+    /** One workbook, one tab per [Sheet]. */
+    fun writeSheets(outputStream: OutputStream, sheets: List<Sheet>) {
+        require(sheets.isNotEmpty()) { "A workbook needs at least one sheet" }
         ZipOutputStream(outputStream).use { zip ->
             fun entry(name: String, content: String) {
                 zip.putNextEntry(ZipEntry(name))
@@ -30,22 +36,50 @@ object XlsxWriter {
                 zip.closeEntry()
             }
 
-            entry("[Content_Types].xml", CONTENT_TYPES)
+            entry("[Content_Types].xml", contentTypesXml(sheets.size))
             entry("_rels/.rels", PACKAGE_RELS)
-            entry("xl/workbook.xml", workbookXml(sheetName))
-            entry("xl/_rels/workbook.xml.rels", WORKBOOK_RELS)
-            entry("xl/worksheets/sheet1.xml", sheetXml(headers, rows))
+            entry("xl/workbook.xml", workbookXml(sheets.map { it.name }))
+            entry("xl/_rels/workbook.xml.rels", workbookRelsXml(sheets.size))
+            sheets.forEachIndexed { i, sheet ->
+                entry("xl/worksheets/sheet${i + 1}.xml", sheetXml(sheet.headers, sheet.rows))
+            }
         }
     }
 
-    private fun workbookXml(sheetName: String) = """
-        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-          <sheets>
-            <sheet name="${escapeXml(sheetName.take(31))}" sheetId="1" r:id="rId1"/>
-          </sheets>
-        </workbook>
-    """.trimIndent()
+    private fun workbookXml(sheetNames: List<String>): String {
+        val sheetsXml = sheetNames.mapIndexed { i, name ->
+            """<sheet name="${escapeXml(name.take(31))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>"""
+        }.joinToString("")
+        return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""" +
+            """<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" """ +
+            """xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">""" +
+            "<sheets>$sheetsXml</sheets></workbook>"
+    }
+
+    private fun contentTypesXml(sheetCount: Int): String {
+        val overrides = (1..sheetCount).joinToString("") { i ->
+            """<Override PartName="/xl/worksheets/sheet$i.xml" """ +
+                """ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>"""
+        }
+        return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""" +
+            """<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">""" +
+            """<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>""" +
+            """<Default Extension="xml" ContentType="application/xml"/>""" +
+            """<Override PartName="/xl/workbook.xml" """ +
+            """ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>""" +
+            overrides + "</Types>"
+    }
+
+    private fun workbookRelsXml(sheetCount: Int): String {
+        val rels = (1..sheetCount).joinToString("") { i ->
+            """<Relationship Id="rId$i" """ +
+                """Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" """ +
+                """Target="worksheets/sheet$i.xml"/>"""
+        }
+        return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""" +
+            """<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">""" +
+            rels + "</Relationships>"
+    }
 
     private fun sheetXml(headers: List<String>, rows: List<List<Any?>>): String {
         val sb = StringBuilder()
@@ -94,15 +128,6 @@ object XlsxWriter {
         .replace("\"", "&quot;")
         .replace("'", "&apos;")
 
-    private val CONTENT_TYPES = """
-        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-          <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-          <Default Extension="xml" ContentType="application/xml"/>
-          <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-          <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-        </Types>
-    """.trimIndent()
 
     private val PACKAGE_RELS = """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -111,10 +136,4 @@ object XlsxWriter {
         </Relationships>
     """.trimIndent()
 
-    private val WORKBOOK_RELS = """
-        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-          <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-        </Relationships>
-    """.trimIndent()
 }

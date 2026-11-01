@@ -2,6 +2,7 @@ package com.parengmark.fueltracker.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.parengmark.fueltracker.data.Expense
 import com.parengmark.fueltracker.data.FillUp
 import com.parengmark.fueltracker.data.FuelRepository
 import com.parengmark.fueltracker.data.Vehicle
@@ -19,6 +20,10 @@ class DashboardViewModel(private val repository: FuelRepository) : ViewModel() {
     private val _fillUps = MutableStateFlow<List<FillUp>>(emptyList())
     val fillUps: StateFlow<List<FillUp>> = _fillUps.asStateFlow()
 
+    private val _expenses = MutableStateFlow<List<Expense>>(emptyList())
+    val expenses: StateFlow<List<Expense>> = _expenses.asStateFlow()
+
+    private var expenseJob: Job? = null
     private var loadedVehicleId: Long? = null
     private var collectJob: Job? = null
 
@@ -33,6 +38,11 @@ class DashboardViewModel(private val repository: FuelRepository) : ViewModel() {
         collectJob?.cancel()
         collectJob = viewModelScope.launch {
             repository.observeFillUps(vehicleId).collect { _fillUps.value = it }
+        }
+
+        expenseJob?.cancel()
+        expenseJob = viewModelScope.launch {
+            repository.observeExpenses(vehicleId).collect { _expenses.value = it }
         }
     }
 }

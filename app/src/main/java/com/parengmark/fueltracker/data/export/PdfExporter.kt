@@ -6,6 +6,7 @@ import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import androidx.core.content.FileProvider
 import com.parengmark.fueltracker.data.ConsumptionCalculator
+import com.parengmark.fueltracker.data.Expense
 import com.parengmark.fueltracker.data.FillUp
 import com.parengmark.fueltracker.data.Vehicle
 import com.parengmark.fueltracker.ui.common.Formatting
@@ -20,7 +21,12 @@ object PdfExporter {
     private const val MARGIN = 40f
     private const val LINE_HEIGHT = 18f
 
-    fun export(context: Context, vehicle: Vehicle, fillUps: List<FillUp>): Uri {
+    fun export(
+        context: Context,
+        vehicle: Vehicle,
+        fillUps: List<FillUp>,
+        expenses: List<Expense> = emptyList()
+    ): Uri {
         val document = PdfDocument()
         val titlePaint = Paint().apply { textSize = 18f; isFakeBoldText = true }
         val headerPaint = Paint().apply { textSize = 11f; isFakeBoldText = true }
@@ -56,6 +62,15 @@ object PdfExporter {
         )
         y += LINE_HEIGHT
         canvas.drawText("${sorted.size} fill-ups logged", MARGIN, y, bodyPaint)
+        y += LINE_HEIGHT
+        val fuelTotal = fillUps.sumOf { it.totalCost }
+        val expenseTotal = expenses.sumOf { it.amount }
+        canvas.drawText(
+            "Fuel ${Formatting.money(fuelTotal, vehicle.currencyCode)} + other expenses " +
+                "${Formatting.money(expenseTotal, vehicle.currencyCode)} = " +
+                Formatting.money(fuelTotal + expenseTotal, vehicle.currencyCode),
+            MARGIN, y, bodyPaint
+        )
         y += LINE_HEIGHT * 1.5f
 
         val col1 = MARGIN
@@ -79,6 +94,27 @@ object PdfExporter {
             canvas.drawText(Formatting.money(f.totalCost, vehicle.currencyCode), col4, y, bodyPaint)
             canvas.drawText((f.stationName ?: "").take(24), col5, y, bodyPaint)
             y += LINE_HEIGHT
+        }
+
+        if (expenses.isNotEmpty()) {
+            y += LINE_HEIGHT
+            newPageIfNeeded()
+            canvas.drawText("Expenses", col1, y, titlePaint)
+            y += LINE_HEIGHT * 1.5f
+            newPageIfNeeded()
+            canvas.drawText("Date", col1, y, headerPaint)
+            canvas.drawText("Category", col2, y, headerPaint)
+            canvas.drawText("Amount", col4, y, headerPaint)
+            canvas.drawText("Shop / notes", col5, y, headerPaint)
+            y += LINE_HEIGHT
+            for (e in expenses.sortedByDescending { it.dateEpochMillis }) {
+                newPageIfNeeded()
+                canvas.drawText(Formatting.date(e.dateEpochMillis), col1, y, bodyPaint)
+                canvas.drawText(e.category.label.take(26), col2, y, bodyPaint)
+                canvas.drawText(Formatting.money(e.amount, vehicle.currencyCode), col4, y, bodyPaint)
+                canvas.drawText((e.vendor ?: e.notes ?: "").take(24), col5, y, bodyPaint)
+                y += LINE_HEIGHT
+            }
         }
 
         document.finishPage(page)

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import com.parengmark.fueltracker.data.FuelRepository
 import com.parengmark.fueltracker.ui.compare.CompareVehiclesViewModel
 import com.parengmark.fueltracker.ui.dashboard.DashboardViewModel
+import com.parengmark.fueltracker.ui.expense.ExpenseViewModel
 import com.parengmark.fueltracker.ui.fillup.FillUpViewModel
 import com.parengmark.fueltracker.ui.maintenance.MaintenanceViewModel
 import com.parengmark.fueltracker.ui.vehicle.VehicleViewModel
@@ -24,6 +25,8 @@ class AppViewModelFactory(private val repository: FuelRepository) : ViewModelPro
                 FillUpViewModel(repository) as T
             modelClass.isAssignableFrom(MaintenanceViewModel::class.java) ->
                 MaintenanceViewModel(repository) as T
+            modelClass.isAssignableFrom(ExpenseViewModel::class.java) ->
+                ExpenseViewModel(repository) as T
             modelClass.isAssignableFrom(CompareVehiclesViewModel::class.java) ->
                 CompareVehiclesViewModel(repository) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

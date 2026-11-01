@@ -48,6 +48,7 @@ fun MaintenanceListScreen(
     viewModel: MaintenanceViewModel,
     vehicleId: Long,
     onAddReminder: () -> Unit,
+    onLogCost: (String) -> Unit,
     onBack: () -> Unit
 ) {
     LaunchedEffect(vehicleId) { viewModel.load(vehicleId) }
@@ -107,8 +108,13 @@ fun MaintenanceListScreen(
                             if (reminder.nextDueDateMillis != null) {
                                 Text("Due by " + com.parengmark.fueltracker.ui.common.Formatting.date(reminder.nextDueDateMillis!!))
                             }
-                            TextButton(onClick = { viewModel.markDone(reminder) }) {
-                                Text("Mark done today")
+                            Row {
+                                TextButton(onClick = { viewModel.markDone(reminder) }) {
+                                    Text("Mark done today")
+                                }
+                                TextButton(onClick = { onLogCost(reminder.type) }) {
+                                    Text("Log cost")
+                                }
                             }
                         }
                     }

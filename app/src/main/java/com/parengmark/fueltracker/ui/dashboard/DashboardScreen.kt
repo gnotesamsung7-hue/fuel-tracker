@@ -3,6 +3,7 @@ package com.parengmark.fueltracker.ui.dashboard
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,8 @@ fun DashboardScreen(
     onOpenMaintenance: () -> Unit,
     onNearbyStations: () -> Unit,
     onCompareVehicles: () -> Unit,
+    onOpenExpenses: () -> Unit,
+    onAddExpense: () -> Unit,
     onViewAllFillUps: () -> Unit,
     onSwitchVehicle: () -> Unit
 ) {
@@ -61,6 +65,7 @@ fun DashboardScreen(
 
     val vehicle by viewModel.vehicle.collectAsState()
     val fillUps by viewModel.fillUps.collectAsState()
+    val expenses by viewModel.expenses.collectAsState()
     val context = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -70,7 +75,7 @@ fun DashboardScreen(
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "Export fuel log"))
+        context.startActivity(Intent.createChooser(intent, "Export vehicle log"))
     }
 
     Scaffold(
@@ -96,6 +101,10 @@ fun DashboardScreen(
                             onClick = { menuExpanded = false; onNearbyStations() }
                         )
                         DropdownMenuItem(
+                            text = { Text("Expenses") },
+                            onClick = { menuExpanded = false; onOpenExpenses() }
+                        )
+                        DropdownMenuItem(
                             text = { Text("Maintenance") },
                             onClick = { menuExpanded = false; onOpenMaintenance() }
                         )
@@ -109,7 +118,7 @@ fun DashboardScreen(
                             onClick = {
                                 menuExpanded = false
                                 val v = vehicle
-                                if (v != null) shareFile(CsvExporter.export(context, v, fillUps), "text/csv")
+                                if (v != null) shareFile(CsvExporter.export(context, v, fillUps, expenses), "text/csv")
                             }
                         )
                         DropdownMenuItem(
@@ -119,7 +128,7 @@ fun DashboardScreen(
                                 val v = vehicle
                                 if (v != null) {
                                     shareFile(
-                                        XlsxExporter.export(context, v, fillUps),
+                                        XlsxExporter.export(context, v, fillUps, expenses),
                                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                     )
                                 }
@@ -130,7 +139,7 @@ fun DashboardScreen(
                             onClick = {
                                 menuExpanded = false
                                 val v = vehicle
-                                if (v != null) shareFile(PdfExporter.export(context, v, fillUps), "application/pdf")
+                                if (v != null) shareFile(PdfExporter.export(context, v, fillUps, expenses), "application/pdf")
                             }
                         )
                     }
@@ -143,77 +152,91 @@ fun DashboardScreen(
             }
         }
     ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-            val v = vehicle
-            if (v != null) {
-                val avgEconomy = ConsumptionCalculator.averageDistancePerVolume(fillUps)
-                val costPerDistance = ConsumptionCalculator.costPerDistance(fillUps)
+        val v = vehicle
+        if (v != null) {
+            val avgEconomy = ConsumptionCalculator.averageDistancePerVolume(fillUps)
+            val costPerDistance = ConsumptionCalculator.costPerDistance(fillUps)
+            val segments = ConsumptionCalculator.computeSegments(fillUps)
 
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Average economy", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            ConsumptionCalculator.formatEconomy(avgEconomy, v),
-                            style = MaterialTheme.typography.headlineMedium
-                        )
-                        if (costPerDistance != null) {
-                            Spacer(Modifier.height(8.dp))
+            // One scrolling list for the whole dashboard, so the cards above
+            // never squeeze the recent fill-ups off a small screen.
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Average economy", style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                "${Formatting.money(costPerDistance, v.currencyCode)} per ${v.distanceUnitLabel}",
-                                style = MaterialTheme.typography.bodyMedium
+                                ConsumptionCalculator.formatEconomy(avgEconomy, v),
+                                style = MaterialTheme.typography.headlineMedium
+                            )
+                            if (costPerDistance != null) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "${Formatting.money(costPerDistance, v.currencyCode)} per ${v.distanceUnitLabel} (fuel)",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    CostOfOwnershipCard(
+                        vehicle = v,
+                        fillUps = fillUps,
+                        expenses = expenses,
+                        onOpenExpenses = onOpenExpenses,
+                        onAddExpense = onAddExpense
+                    )
+                }
+
+                if (segments.isNotEmpty()) {
+                    item {
+                        Card(Modifier.fillMaxWidth()) {
+                            EconomyTrendChart(
+                                segments = segments,
+                                vehicle = v,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
                             )
                         }
                     }
                 }
 
-                val segments = ConsumptionCalculator.computeSegments(fillUps)
-                if (segments.isNotEmpty()) {
-                    Spacer(Modifier.height(16.dp))
-                    Card(Modifier.fillMaxWidth()) {
-                        EconomyTrendChart(
-                            segments = segments,
-                            vehicle = v,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                        )
+                item {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Recent fill-ups", style = MaterialTheme.typography.titleLarge)
+                        TextButton(onClick = onViewAllFillUps) { Text("View all") }
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Recent fill-ups", style = MaterialTheme.typography.titleLarge)
-                    TextButton(onClick = onViewAllFillUps) { Text("View all") }
-                }
-
                 if (fillUps.isEmpty()) {
-                    Text("No fill-ups logged yet. Tap + to add your first one.")
+                    item { Text("No fill-ups logged yet. Tap + to add your first one.") }
                 } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(fillUps.take(5), key = { it.id }) { fillUp ->
-                            Card(Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(12.dp)) {
-                                    Text(
-                                        "${Formatting.date(fillUp.dateEpochMillis)} · " +
-                                            "${fillUp.odometer} ${v.distanceUnitLabel}"
-                                    )
-                                    Text(
-                                        "${fillUp.volume} ${v.volumeUnitLabel} · " +
-                                            Formatting.money(fillUp.totalCost, v.currencyCode) +
-                                            if (!fillUp.fullTank) " · partial" else "",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
+                    items(fillUps.take(5), key = { it.id }) { fillUp ->
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(
+                                    "${Formatting.date(fillUp.dateEpochMillis)} · " +
+                                        "${fillUp.odometer} ${v.distanceUnitLabel}"
+                                )
+                                Text(
+                                    "${fillUp.volume} ${v.volumeUnitLabel} · " +
+                                        Formatting.money(fillUp.totalCost, v.currencyCode) +
+                                        if (!fillUp.fullTank) " · partial" else "",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                             }
                         }
                     }

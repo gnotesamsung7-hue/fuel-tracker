@@ -2,7 +2,7 @@ package com.parengmark.fueltracker.data
 
 import kotlinx.coroutines.flow.Flow
 
-/** Thin repository over the two DAOs -- keeps ViewModels from talking to Room
+/** Thin repository over the DAOs -- keeps ViewModels from talking to Room
  * directly, and is the seam where a future sync layer (see the spec's Phase 3)
  * would plug in without the UI changing. */
 class FuelRepository(private val db: AppDatabase) {
@@ -49,4 +49,16 @@ class FuelRepository(private val db: AppDatabase) {
 
     suspend fun deleteMaintenanceReminder(reminder: MaintenanceReminder) =
         db.maintenanceReminderDao().delete(reminder)
+
+    fun observeExpenses(vehicleId: Long): Flow<List<Expense>> =
+        db.expenseDao().observeForVehicle(vehicleId)
+
+    suspend fun getExpenses(vehicleId: Long): List<Expense> =
+        db.expenseDao().getForVehicle(vehicleId)
+
+    suspend fun getExpense(id: Long): Expense? = db.expenseDao().getById(id)
+
+    suspend fun saveExpense(expense: Expense): Long = db.expenseDao().upsert(expense)
+
+    suspend fun deleteExpense(expense: Expense) = db.expenseDao().delete(expense)
 }

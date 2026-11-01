@@ -62,7 +62,7 @@ fun CompareVehiclesScreen(
                 item {
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp)) {
-                            Text("Household total fuel spend", style = MaterialTheme.typography.bodyMedium)
+                            Text("Household total spend (fuel + expenses)", style = MaterialTheme.typography.bodyMedium)
                             Text(
                                 Formatting.money(householdTotal, summaries.first().vehicle.currencyCode),
                                 style = MaterialTheme.typography.headlineMedium
@@ -87,9 +87,14 @@ fun CompareVehiclesScreen(
                                 )
                             }
                             Text(
-                                "Total spent: " + Formatting.money(summary.totalSpend, summary.vehicle.currencyCode) +
-                                    " (${summary.fillUpCount} fill-ups)",
+                                "Total spent: " + Formatting.money(summary.totalSpend, summary.vehicle.currencyCode),
                                 style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                "Fuel " + Formatting.money(summary.fuelSpend, summary.vehicle.currencyCode) +
+                                    " (${summary.fillUpCount} fill-ups) · Other " +
+                                    Formatting.money(summary.expenseSpend, summary.vehicle.currencyCode),
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
                     }

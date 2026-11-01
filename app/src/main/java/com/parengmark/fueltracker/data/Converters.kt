@@ -18,4 +18,11 @@ class Converters {
     @TypeConverter
     fun toMetricEconomyDisplay(value: String): MetricEconomyDisplay =
         runCatching { MetricEconomyDisplay.valueOf(value) }.getOrDefault(MetricEconomyDisplay.KM_PER_L)
+
+    @TypeConverter
+    fun fromExpenseCategory(value: ExpenseCategory): String = value.name
+
+    @TypeConverter
+    fun toExpenseCategory(value: String): ExpenseCategory =
+        runCatching { ExpenseCategory.valueOf(value) }.getOrDefault(ExpenseCategory.OTHER)
 }

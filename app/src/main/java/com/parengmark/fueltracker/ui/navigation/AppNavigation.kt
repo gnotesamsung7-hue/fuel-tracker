@@ -7,12 +7,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.parengmark.fueltracker.data.ExpenseCategory
 import com.parengmark.fueltracker.data.FuelRepository
 import com.parengmark.fueltracker.ui.common.AppViewModelFactory
 import com.parengmark.fueltracker.ui.compare.CompareVehiclesScreen
 import com.parengmark.fueltracker.ui.compare.CompareVehiclesViewModel
 import com.parengmark.fueltracker.ui.dashboard.DashboardScreen
 import com.parengmark.fueltracker.ui.dashboard.DashboardViewModel
+import com.parengmark.fueltracker.ui.expense.AddEditExpenseScreen
+import com.parengmark.fueltracker.ui.expense.ExpenseListScreen
+import com.parengmark.fueltracker.ui.expense.ExpenseViewModel
 import com.parengmark.fueltracker.ui.fillup.AddFillUpScreen
 import com.parengmark.fueltracker.ui.fillup.FillUpListScreen
 import com.parengmark.fueltracker.ui.fillup.FillUpViewModel
@@ -38,6 +42,8 @@ private object Routes {
     const val ADD_MAINTENANCE = "addMaintenance/{vehicleId}"
     const val NEARBY_STATIONS = "nearbyStations/{vehicleId}"
     const val COMPARE_VEHICLES = "compareVehicles"
+    const val EXPENSES = "expenses/{vehicleId}"
+    const val ADD_EXPENSE = "addExpense/{vehicleId}?expenseId={expenseId}&category={category}&note={note}"
 
     fun dashboard(vehicleId: Long) = "dashboard/$vehicleId"
     fun fillUps(vehicleId: Long) = "fillups/$vehicleId"
@@ -51,6 +57,18 @@ private object Routes {
     fun maintenance(vehicleId: Long) = "maintenance/$vehicleId"
     fun addMaintenance(vehicleId: Long) = "addMaintenance/$vehicleId"
     fun nearbyStations(vehicleId: Long) = "nearbyStations/$vehicleId"
+    fun expenses(vehicleId: Long) = "expenses/$vehicleId"
+    fun addExpense(
+        vehicleId: Long,
+        expenseId: Long? = null,
+        category: ExpenseCategory? = null,
+        note: String? = null
+    ): String {
+        val id = expenseId ?: -1L
+        val c = category?.name ?: ""
+        val n = note?.let { enc(it) } ?: ""
+        return "addExpense/$vehicleId?expenseId=$id&category=$c&note=$n"
+    }
 
     private fun enc(value: String) = URLEncoder.encode(value, "UTF-8")
 }
@@ -96,6 +114,8 @@ fun AppNavigation(repository: FuelRepository) {
                 onOpenMaintenance = { navController.navigate(Routes.maintenance(vehicleId)) },
                 onNearbyStations = { navController.navigate(Routes.nearbyStations(vehicleId)) },
                 onCompareVehicles = { navController.navigate(Routes.COMPARE_VEHICLES) },
+                onOpenExpenses = { navController.navigate(Routes.expenses(vehicleId)) },
+                onAddExpense = { navController.navigate(Routes.addExpense(vehicleId)) },
                 onViewAllFillUps = { navController.navigate(Routes.fillUps(vehicleId)) },
                 onSwitchVehicle = { navController.popBackStack(Routes.VEHICLES, inclusive = false) }
             )
@@ -174,6 +194,15 @@ fun AppNavigation(repository: FuelRepository) {
                 viewModel = vm,
                 vehicleId = vehicleId,
                 onAddReminder = { navController.navigate(Routes.addMaintenance(vehicleId)) },
+                onLogCost = { reminderType ->
+                    navController.navigate(
+                        Routes.addExpense(
+                            vehicleId = vehicleId,
+                            category = ExpenseCategory.guessFrom(reminderType),
+                            note = reminderType
+                        )
+                    )
+                },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -206,6 +235,46 @@ fun AppNavigation(repository: FuelRepository) {
                         popUpTo(Routes.dashboard(vehicleId))
                     }
                 }
+            )
+        }
+
+        composable(
+            Routes.EXPENSES,
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: return@composable
+            val vm: ExpenseViewModel = viewModel(factory = factory)
+            ExpenseListScreen(
+                viewModel = vm,
+                vehicleId = vehicleId,
+                onAddExpense = { navController.navigate(Routes.addExpense(vehicleId)) },
+                onEditExpense = { id -> navController.navigate(Routes.addExpense(vehicleId, expenseId = id)) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            Routes.ADD_EXPENSE,
+            arguments = listOf(
+                navArgument("vehicleId") { type = NavType.LongType },
+                navArgument("expenseId") { type = NavType.LongType; defaultValue = -1L },
+                navArgument("category") { type = NavType.StringType; defaultValue = "" },
+                navArgument("note") { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: return@composable
+            val expenseId = backStackEntry.arguments?.getLong("expenseId")?.takeIf { it > 0 }
+            val categoryName = backStackEntry.arguments?.getString("category").orEmpty()
+            val initialCategory = ExpenseCategory.values().firstOrNull { it.name == categoryName }
+            val vm: ExpenseViewModel = viewModel(factory = factory)
+            AddEditExpenseScreen(
+                viewModel = vm,
+                vehicleId = vehicleId,
+                expenseId = expenseId,
+                initialCategory = initialCategory,
+                initialNotes = dec(backStackEntry.arguments?.getString("note")),
+                onSaved = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
             )
         }
 

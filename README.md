@@ -34,6 +34,18 @@ stack rationale.
   due or overdue (`work/MaintenanceReminderWorker.kt`). Completed manually via
   "Mark done" for now.
 
+**Expense log (v0.4)**
+- Log any non-fuel cost per vehicle: Maintenance/PMS, oil change, repair,
+  tires & battery, toll, parking, insurance, registration, car wash, other
+  (`data/Expense.kt`, `ui/expense/`). Tap an entry to edit it.
+- Totals, this month, a per-category breakdown, and category filters.
+- Dashboard "Total cost to run" card: fuel + expenses, and the all-in cost
+  per km/mi once there's enough fuel-log distance.
+- "Log cost" on each maintenance reminder opens the expense form pre-filled.
+- Expenses are included in Compare vehicles and in CSV (second table),
+  Excel (second sheet) and PDF exports.
+- Database v2 -> v3 uses a real migration, so existing logs are kept.
+
 **Nearby prices, exports & comparison (Phase 3)**
 - **Nearby fuel stations**: finds stations close to you via OpenStreetMap's
   free, keyless Overpass API (`data/stations/OverpassApi.kt`) -- no Google

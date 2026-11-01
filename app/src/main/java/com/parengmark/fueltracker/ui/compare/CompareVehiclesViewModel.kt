@@ -15,7 +15,10 @@ data class VehicleSummary(
     val vehicle: Vehicle,
     val avgEconomy: Double?,
     val costPerDistance: Double?,
+    /** Fuel plus every other expense. */
     val totalSpend: Double,
+    val fuelSpend: Double,
+    val expenseSpend: Double,
     val fillUpCount: Int
 )
 
@@ -40,11 +43,15 @@ class CompareVehiclesViewModel(private val repository: FuelRepository) : ViewMod
             val vehicles = repository.observeVehicles().first()
             _summaries.value = vehicles.map { vehicle ->
                 val fillUps = repository.getFillUpsAscending(vehicle.id)
+                val fuelSpend = fillUps.sumOf { it.totalCost }
+                val expenseSpend = repository.getExpenses(vehicle.id).sumOf { it.amount }
                 VehicleSummary(
                     vehicle = vehicle,
                     avgEconomy = ConsumptionCalculator.averageDistancePerVolume(fillUps),
                     costPerDistance = ConsumptionCalculator.costPerDistance(fillUps),
-                    totalSpend = fillUps.sumOf { it.totalCost },
+                    totalSpend = fuelSpend + expenseSpend,
+                    fuelSpend = fuelSpend,
+                    expenseSpend = expenseSpend,
                     fillUpCount = fillUps.size
                 )
             }
