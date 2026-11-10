@@ -12,7 +12,9 @@ import androidx.core.app.NotificationManagerCompat
 
 object NotificationHelper {
     const val CHANNEL_ID = "maintenance_reminders"
+    const val FUEL_CHANNEL_ID = "fuel_reminders"
     private const val NOTIFICATION_ID = 1001
+    private const val FUEL_NOTIFICATION_ID = 1002
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -23,8 +25,16 @@ object NotificationHelper {
             ).apply {
                 description = "Alerts when a vehicle's maintenance item is due or overdue"
             }
+            val fuelChannel = NotificationChannel(
+                FUEL_CHANNEL_ID,
+                "Fuel top-up reminders",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Alerts when the estimated fuel level is getting low"
+            }
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
+            manager.createNotificationChannel(fuelChannel)
         }
     }
 
@@ -51,5 +61,26 @@ object NotificationHelper {
             .build()
 
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+    }
+
+    fun showFuelNotification(context: Context, lines: List<String>) {
+        if (lines.isEmpty()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) return
+        }
+
+        val notification = NotificationCompat.Builder(context, FUEL_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("Time to top up")
+            .setContentText(lines.first())
+            .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(FUEL_NOTIFICATION_ID, notification)
     }
 }

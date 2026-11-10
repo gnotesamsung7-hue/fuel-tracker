@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shortcut icon: a white car key on the app's green. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#1B5E20"
+        android:pathData="M24,0A24,24 0,1 1,24 48A24,24 0,1 1,24 0Z" />
+    <!-- key head -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M16,17A7,7 0,1 1,16 31A7,7 0,1 1,16 17Z" />
+    <path
+        android:fillColor="#1B5E20"
+        android:pathData="M16,21A3,3 0,1 1,16 27A3,3 0,1 1,16 21Z" />
+    <!-- shaft and teeth -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M22,22H36V26H22ZM29,26H32V30H29ZM34,26H36V29H34Z" />
+</vector>

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">FillUp+</string>
+    <string name="shortcut_check_in_short">Check in</string>
+    <string name="shortcut_check_in_long">Engine on: check in</string>
 </resources>

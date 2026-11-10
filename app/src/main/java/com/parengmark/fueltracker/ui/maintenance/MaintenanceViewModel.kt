@@ -19,7 +19,7 @@ class MaintenanceViewModel(private val repository: FuelRepository) : ViewModel()
     private val _reminders = MutableStateFlow<List<MaintenanceReminder>>(emptyList())
     val reminders: StateFlow<List<MaintenanceReminder>> = _reminders.asStateFlow()
 
-    /** Current odometer, taken from the vehicle's latest fill-up -- used both to
+    /** Current odometer, the highest reading from fill-ups and engine check-ins -- used both to
      * pre-fill "mark done" and to compute due/overdue status. */
     private val _currentOdometer = MutableStateFlow<Double?>(null)
     val currentOdometer: StateFlow<Double?> = _currentOdometer.asStateFlow()
@@ -33,7 +33,7 @@ class MaintenanceViewModel(private val repository: FuelRepository) : ViewModel()
 
         viewModelScope.launch {
             _vehicle.value = repository.getVehicle(vehicleId)
-            _currentOdometer.value = repository.getLastFillUp(vehicleId)?.odometer
+            _currentOdometer.value = repository.getCurrentOdometer(vehicleId)
         }
 
         collectJob?.cancel()

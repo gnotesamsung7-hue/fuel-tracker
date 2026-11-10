@@ -71,4 +71,38 @@ class FuelRepository(private val db: AppDatabase) {
     suspend fun saveExpense(expense: Expense): Long = db.expenseDao().upsert(expense)
 
     suspend fun deleteExpense(expense: Expense) = db.expenseDao().delete(expense)
+
+    fun observeOdometerLogs(vehicleId: Long): Flow<List<OdometerLog>> =
+        db.odometerLogDao().observeForVehicle(vehicleId)
+
+    suspend fun getOdometerLogs(vehicleId: Long): List<OdometerLog> =
+        db.odometerLogDao().getForVehicle(vehicleId)
+
+    suspend fun saveOdometerLog(log: OdometerLog): Long = db.odometerLogDao().insert(log)
+
+    suspend fun deleteOdometerLog(log: OdometerLog) = db.odometerLogDao().delete(log)
+
+    /** Highest odometer reading known from either fill-ups or engine check-ins. */
+    suspend fun getCurrentOdometer(vehicleId: Long): Double? {
+        val fromFillUps = getLastFillUp(vehicleId)?.odometer
+        val fromLogs = db.odometerLogDao().getMaxOdometer(vehicleId)
+        return listOfNotNull(fromFillUps, fromLogs).maxOrNull()
+    }
+
+    /** Same @Update-not-REPLACE reasoning as [saveVehicleArt]. */
+    suspend fun saveTankCapacity(vehicleId: Long, capacity: Double?) {
+        val vehicle = db.vehicleDao().getById(vehicleId) ?: return
+        db.vehicleDao().update(vehicle.copy(tankCapacity = capacity))
+    }
+
+    suspend fun estimateFuel(vehicleId: Long): FuelEstimate? {
+        val vehicle = getVehicle(vehicleId) ?: return null
+        val fillUps = getFillUpsAscending(vehicleId)
+        return FuelEstimator.estimate(
+            tankCapacity = vehicle.tankCapacity,
+            fillUps = fillUps,
+            logs = getOdometerLogs(vehicleId),
+            distancePerVolume = ConsumptionCalculator.averageDistancePerVolume(fillUps)
+        )
+    }
 }

@@ -5,12 +5,14 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.parengmark.fueltracker.FuelTrackerApp
 import com.parengmark.fueltracker.data.DueStatus
+import com.parengmark.fueltracker.data.FuelStatus
 import com.parengmark.fueltracker.data.MaintenanceStatus
+import kotlinx.coroutines.flow.first
+import kotlin.math.roundToInt
 
-/** Runs once a day (see [scheduleDailyCheck] in [FuelTrackerApp]), checks every
- * maintenance reminder across every vehicle, and posts a single notification
- * summarizing anything overdue or due soon. Pure read of the local database --
- * no network. */
+/** Runs once a day (see [FuelTrackerApp]). Checks every maintenance reminder
+ * and every vehicle's estimated fuel level, and posts at most one notification
+ * for each. Pure read of the local database -- no network. */
 class MaintenanceReminderWorker(
     context: Context,
     params: WorkerParameters
@@ -18,16 +20,16 @@ class MaintenanceReminderWorker(
 
     override suspend fun doWork(): Result {
         val repository = (applicationContext as FuelTrackerApp).repository
-        val reminders = repository.getAllMaintenanceReminders()
-        if (reminders.isEmpty()) return Result.success()
 
+        // --- Maintenance -------------------------------------------------
+        val reminders = repository.getAllMaintenanceReminders()
         val odometerByVehicle = mutableMapOf<Long, Double?>()
         val dueLines = mutableListOf<String>()
         val now = System.currentTimeMillis()
 
         for (reminder in reminders) {
             val currentOdometer = odometerByVehicle.getOrPut(reminder.vehicleId) {
-                repository.getLastFillUp(reminder.vehicleId)?.odometer
+                repository.getCurrentOdometer(reminder.vehicleId)
             }
             val status = MaintenanceStatus.compute(reminder, currentOdometer, now)
             if (status == DueStatus.OVERDUE || status == DueStatus.DUE_SOON) {
@@ -36,10 +38,23 @@ class MaintenanceReminderWorker(
                 dueLines += "$vehicleName: ${reminder.type} ($suffix)"
             }
         }
-
         if (dueLines.isNotEmpty()) {
             NotificationHelper.showMaintenanceNotification(applicationContext, dueLines)
         }
+
+        // --- Fuel top-up -------------------------------------------------
+        val fuelLines = mutableListOf<String>()
+        for (vehicle in repository.observeVehicles().first()) {
+            val estimate = repository.estimateFuel(vehicle.id) ?: continue
+            if (estimate.status == FuelStatus.OK) continue
+            val range = estimate.rangeLeft?.let { ", ~${it.roundToInt()} ${vehicle.distanceUnitLabel} left" } ?: ""
+            val label = if (estimate.status == FuelStatus.LOW) "fill up now" else "top up soon"
+            fuelLines += "${vehicle.name}: $label (about ${(estimate.fractionLeft * 100).roundToInt()}% tank$range)"
+        }
+        if (fuelLines.isNotEmpty()) {
+            NotificationHelper.showFuelNotification(applicationContext, fuelLines)
+        }
+
         return Result.success()
     }
 }

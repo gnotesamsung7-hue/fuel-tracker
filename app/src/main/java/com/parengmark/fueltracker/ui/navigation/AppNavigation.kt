@@ -12,6 +12,16 @@ import com.parengmark.fueltracker.data.FuelRepository
 import com.parengmark.fueltracker.ui.art.ArtStudioScreen
 import com.parengmark.fueltracker.ui.art.ArtStudioViewModel
 import com.parengmark.fueltracker.ui.common.AppViewModelFactory
+import com.parengmark.fueltracker.ui.trip.CheckInScreen
+import com.parengmark.fueltracker.ui.trip.JournalScreen
+import com.parengmark.fueltracker.ui.trip.TripViewModel
+import android.content.Context
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import com.parengmark.fueltracker.ui.compare.CompareVehiclesScreen
 import com.parengmark.fueltracker.ui.compare.CompareVehiclesViewModel
 import com.parengmark.fueltracker.ui.dashboard.DashboardScreen
@@ -46,6 +56,8 @@ private object Routes {
     const val COMPARE_VEHICLES = "compareVehicles"
     const val EXPENSES = "expenses/{vehicleId}"
     const val ART_STUDIO = "artStudio/{vehicleId}"
+    const val CHECK_IN = "checkIn/{vehicleId}"
+    const val JOURNAL = "journal/{vehicleId}"
     const val ADD_EXPENSE = "addExpense/{vehicleId}?expenseId={expenseId}&category={category}&note={note}"
 
     fun dashboard(vehicleId: Long) = "dashboard/$vehicleId"
@@ -62,6 +74,8 @@ private object Routes {
     fun nearbyStations(vehicleId: Long) = "nearbyStations/$vehicleId"
     fun expenses(vehicleId: Long) = "expenses/$vehicleId"
     fun artStudio(vehicleId: Long) = "artStudio/$vehicleId"
+    fun checkIn(vehicleId: Long) = "checkIn/$vehicleId"
+    fun journal(vehicleId: Long) = "journal/$vehicleId"
     fun addExpense(
         vehicleId: Long,
         expenseId: Long? = null,
@@ -80,10 +94,37 @@ private object Routes {
 private fun dec(value: String?): String =
     if (value.isNullOrEmpty()) "" else URLDecoder.decode(value, "UTF-8")
 
+/** Remembers which vehicle was opened last, so the home-screen "Check in"
+ * shortcut can jump straight to that car. */
+private object LastVehicle {
+    private const val PREFS = "fueltracker_prefs"
+    private const val KEY = "last_vehicle_id"
+
+    fun save(context: Context, vehicleId: Long) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(KEY, vehicleId).apply()
+    }
+
+    fun get(context: Context): Long? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY, -1L).takeIf { it > 0 }
+}
+
 @Composable
-fun AppNavigation(repository: FuelRepository) {
+fun AppNavigation(repository: FuelRepository, startCheckIn: Boolean = false) {
     val navController = rememberNavController()
     val factory = AppViewModelFactory(repository)
+    val context = LocalContext.current
+
+    // Opened from the "Check in" home-screen shortcut: go to the last car's
+    // check-in, with its dashboard underneath so Back lands somewhere sensible.
+    var shortcutHandled by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(startCheckIn) {
+        if (!startCheckIn || shortcutHandled) return@LaunchedEffect
+        shortcutHandled = true
+        val id = LastVehicle.get(context) ?: return@LaunchedEffect
+        if (repository.getVehicle(id) == null) return@LaunchedEffect
+        navController.navigate(Routes.dashboard(id))
+        navController.navigate(Routes.checkIn(id))
+    }
 
     NavHost(navController = navController, startDestination = Routes.VEHICLES) {
         composable(Routes.VEHICLES) {
@@ -110,8 +151,11 @@ fun AppNavigation(repository: FuelRepository) {
         ) { backStackEntry ->
             val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: return@composable
             val vm: DashboardViewModel = viewModel(factory = factory)
+            val tripVm: TripViewModel = viewModel(factory = factory)
+            LaunchedEffect(vehicleId) { LastVehicle.save(context, vehicleId) }
             DashboardScreen(
                 viewModel = vm,
+                tripViewModel = tripVm,
                 vehicleId = vehicleId,
                 onAddFillUp = { navController.navigate(Routes.addFillUp(vehicleId)) },
                 onScanReceipt = { navController.navigate(Routes.scanReceipt(vehicleId)) },
@@ -121,6 +165,8 @@ fun AppNavigation(repository: FuelRepository) {
                 onOpenExpenses = { navController.navigate(Routes.expenses(vehicleId)) },
                 onAddExpense = { navController.navigate(Routes.addExpense(vehicleId)) },
                 onOpenArtStudio = { navController.navigate(Routes.artStudio(vehicleId)) },
+                onCheckIn = { navController.navigate(Routes.checkIn(vehicleId)) },
+                onOpenJournal = { navController.navigate(Routes.journal(vehicleId)) },
                 onViewAllFillUps = { navController.navigate(Routes.fillUps(vehicleId)) },
                 onSwitchVehicle = { navController.popBackStack(Routes.VEHICLES, inclusive = false) }
             )
@@ -294,6 +340,39 @@ fun AppNavigation(repository: FuelRepository) {
                 viewModel = vm,
                 vehicleId = vehicleId,
                 onDone = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            Routes.CHECK_IN,
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: return@composable
+            val vm: TripViewModel = viewModel(factory = factory)
+            CheckInScreen(
+                viewModel = vm,
+                vehicleId = vehicleId,
+                onDone = { navController.popBackStack() },
+                onBack = { navController.popBackStack() },
+                onNearbyStations = {
+                    navController.navigate(Routes.nearbyStations(vehicleId)) {
+                        popUpTo(Routes.dashboard(vehicleId))
+                    }
+                }
+            )
+        }
+
+        composable(
+            Routes.JOURNAL,
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: return@composable
+            val vm: TripViewModel = viewModel(factory = factory)
+            JournalScreen(
+                viewModel = vm,
+                vehicleId = vehicleId,
+                onCheckIn = { navController.navigate(Routes.checkIn(vehicleId)) },
                 onBack = { navController.popBackStack() }
             )
         }

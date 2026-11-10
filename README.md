@@ -46,6 +46,22 @@ stack rationale.
   Excel (second sheet) and PDF exports.
 - Database v2 -> v3 uses a real migration, so existing logs are kept.
 
+**Trip logger, top-up reminders & odometer journal (v0.6)**
+- Engine check-in: each time you start the car, log the odometer and
+  (optionally) the fuel gauge and trip type. Big "Engine on: check in" button
+  on the dashboard, plus a "Check in" home-screen shortcut (long-press the app
+  icon) that opens the last car's check-in directly.
+- Fuel estimate (`data/FuelEstimator.kt`): replays full/partial fill-ups,
+  gauge readings and distance driven at your average economy. Needs the tank
+  size (set on the dashboard card). After each check-in it says "You're good",
+  "Top up soon" (1/4 tank) or "Fill up now" (1/8), with a link to nearby
+  stations; the daily background check also notifies when it's low.
+- Odometer journal: distance per day (from check-ins and fill-ups), today /
+  this week / this month totals, average per driving day, estimated fuel and
+  cost per day. Check-ins can be deleted there.
+- Maintenance reminders now use the latest check-in odometer too.
+- Database v4 -> v5 adds the check-ins table and tank size; data is kept.
+
 **Fuel price, octane & Art studio (v0.5)**
 - Add fill-up now has Price per L, Volume and Total: type any two and the
   third is calculated. "Use last price" fills in the previous price.

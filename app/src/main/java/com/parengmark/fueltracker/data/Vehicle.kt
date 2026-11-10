@@ -27,7 +27,10 @@ data class Vehicle(
     val createdAtEpochMillis: Long = System.currentTimeMillis(),
     /** The user's pixel drawing of this car from the Art studio, encoded by
      * [com.parengmark.fueltracker.ui.art.PixelArt]. Null = nothing drawn yet. */
-    val pixelArt: String? = null
+    val pixelArt: String? = null,
+    /** Fuel tank size in the vehicle's volume unit -- needed for the
+     * "when to top up" estimate. Null until the user sets it. */
+    val tankCapacity: Double? = null
 ) {
     val distanceUnitLabel: String get() = if (unitSystem == UnitSystem.METRIC) "km" else "mi"
     val volumeUnitLabel: String get() = if (unitSystem == UnitSystem.METRIC) "L" else "gal"

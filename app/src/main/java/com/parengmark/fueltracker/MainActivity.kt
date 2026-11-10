@@ -23,6 +23,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val repository = (application as FuelTrackerApp).repository
+        // Launched from the "Check in" home-screen shortcut (res/xml/shortcuts.xml).
+        val startCheckIn = intent?.action == ACTION_CHECK_IN
 
         setContent {
             val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -43,9 +45,13 @@ class MainActivity : ComponentActivity() {
 
             FuelTrackerTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AppNavigation(repository = repository)
+                    AppNavigation(repository = repository, startCheckIn = startCheckIn)
                 }
             }
         }
+    }
+
+    companion object {
+        const val ACTION_CHECK_IN = "com.parengmark.fueltracker.CHECK_IN"
     }
 }

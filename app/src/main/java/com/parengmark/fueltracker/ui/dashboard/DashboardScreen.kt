@@ -42,6 +42,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.parengmark.fueltracker.data.ConsumptionCalculator
 import com.parengmark.fueltracker.ui.art.PumpBuddyFab
+import com.parengmark.fueltracker.ui.trip.EngineCheckInCard
+import com.parengmark.fueltracker.ui.trip.TripViewModel
 import com.parengmark.fueltracker.data.CsvExporter
 import com.parengmark.fueltracker.data.export.PdfExporter
 import com.parengmark.fueltracker.data.export.XlsxExporter
@@ -51,6 +53,7 @@ import com.parengmark.fueltracker.ui.common.Formatting
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
+    tripViewModel: TripViewModel,
     vehicleId: Long,
     onAddFillUp: () -> Unit,
     onScanReceipt: () -> Unit,
@@ -60,14 +63,21 @@ fun DashboardScreen(
     onOpenExpenses: () -> Unit,
     onAddExpense: () -> Unit,
     onOpenArtStudio: () -> Unit,
+    onCheckIn: () -> Unit,
+    onOpenJournal: () -> Unit,
     onViewAllFillUps: () -> Unit,
     onSwitchVehicle: () -> Unit
 ) {
-    LaunchedEffect(vehicleId) { viewModel.load(vehicleId) }
+    LaunchedEffect(vehicleId) {
+        viewModel.load(vehicleId)
+        tripViewModel.load(vehicleId)
+    }
 
     val vehicle by viewModel.vehicle.collectAsState()
     val fillUps by viewModel.fillUps.collectAsState()
     val expenses by viewModel.expenses.collectAsState()
+    val tripVehicle by tripViewModel.vehicle.collectAsState()
+    val fuelEstimate by tripViewModel.estimate.collectAsState()
     val context = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -101,6 +111,10 @@ fun DashboardScreen(
                         DropdownMenuItem(
                             text = { Text("Nearby fuel stations") },
                             onClick = { menuExpanded = false; onNearbyStations() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Odometer journal") },
+                            onClick = { menuExpanded = false; onOpenJournal() }
                         )
                         DropdownMenuItem(
                             text = { Text("Expenses") },
@@ -171,6 +185,18 @@ fun DashboardScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                item {
+                    // Observed copy of the vehicle, so a new tank size shows at once.
+                    EngineCheckInCard(
+                        vehicle = tripVehicle ?: v,
+                        estimate = fuelEstimate,
+                        hasEconomy = avgEconomy != null,
+                        onCheckIn = onCheckIn,
+                        onOpenJournal = onOpenJournal,
+                        onSetTankSize = { text -> tripViewModel.setTankCapacity(vehicleId, text) }
+                    )
+                }
+
                 item {
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp)) {
