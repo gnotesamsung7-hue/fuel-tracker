@@ -144,7 +144,7 @@ fun EngineCheckInCard(
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Fuel estimate", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Text("Trip logger", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 if (estimate != null) {
                     Text(
                         estimate.status.headline(),
@@ -171,8 +171,6 @@ fun EngineCheckInCard(
                     )
                 }
                 else -> {
-                    FuelLevelBar(estimate.fractionLeft, estimate.status)
-                    Spacer(Modifier.height(6.dp))
                     Text(estimate.describe(vehicle), style = MaterialTheme.typography.bodyMedium)
                 }
             }

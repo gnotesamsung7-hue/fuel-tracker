@@ -105,4 +105,13 @@ class FuelRepository(private val db: AppDatabase) {
             distancePerVolume = ConsumptionCalculator.averageDistancePerVolume(fillUps)
         )
     }
+
+    /** Same @Update-not-REPLACE reasoning as [saveVehicleArt]. Null clears it. */
+    suspend fun saveCarBluetooth(vehicleId: Long, address: String?, name: String?) {
+        val vehicle = db.vehicleDao().getById(vehicleId) ?: return
+        db.vehicleDao().update(vehicle.copy(bluetoothAddress = address, bluetoothName = name))
+    }
+
+    suspend fun getVehiclesForBluetooth(address: String): List<Vehicle> =
+        db.vehicleDao().getByBluetoothAddress(address)
 }

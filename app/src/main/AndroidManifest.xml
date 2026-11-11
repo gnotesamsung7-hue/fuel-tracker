@@ -15,6 +15,18 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Car Bluetooth check-in prompt: when the phone connects to the car's
+         Bluetooth (engine on), FillUp+ posts a "check in" notification.
+         BLUETOOTH_CONNECT (Android 12+) is asked for only when the user picks
+         their car in Car settings; nothing is scanned or paired by the app. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-feature
+        android:name="android.hardware.bluetooth"
+        android:required="false" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -34,12 +46,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Long-press the app icon for a "Check in" shortcut (or drag it
-                 to the home screen) to log the odometer at engine start. -->
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- ACL_CONNECTED is exempt from the background implicit-broadcast
+             limits, so this still fires with the app closed. -->
+        <receiver
+            android:name=".bluetooth.CarBluetoothReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

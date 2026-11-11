@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Expense::class,
         OdometerLog::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -88,6 +88,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v5 -> v6: the car's Bluetooth device for the check-in prompt. */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `vehicles` ADD COLUMN `bluetoothAddress` TEXT")
+                db.execSQL("ALTER TABLE `vehicles` ADD COLUMN `bluetoothName` TEXT")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -95,9 +103,9 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "fuel-tracker.db"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     // Only used for a version jump with no migration path
-                    // (e.g. a v1 test install). v2 -> ... -> v5 keeps your data.
+                    // (e.g. a v1 test install). v2 -> ... -> v6 keeps your data.
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }

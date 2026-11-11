@@ -40,7 +40,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Settings
 import com.parengmark.fueltracker.data.ConsumptionCalculator
+import com.parengmark.fueltracker.data.PriceWatchCalculator
 import com.parengmark.fueltracker.ui.art.PumpBuddyFab
 import com.parengmark.fueltracker.ui.trip.EngineCheckInCard
 import com.parengmark.fueltracker.ui.trip.TripViewModel
@@ -65,6 +68,9 @@ fun DashboardScreen(
     onOpenArtStudio: () -> Unit,
     onCheckIn: () -> Unit,
     onOpenJournal: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenAchievements: () -> Unit,
+    onShareApp: () -> Unit,
     onViewAllFillUps: () -> Unit,
     onSwitchVehicle: () -> Unit
 ) {
@@ -100,10 +106,20 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenAchievements) {
+                        Icon(Icons.Filled.EmojiEvents, contentDescription = "Achievements")
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Car settings")
+                    }
                     IconButton(onClick = { menuExpanded = true }) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "More")
                     }
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Share FillUp+ (QR code)") },
+                            onClick = { menuExpanded = false; onShareApp() }
+                        )
                         DropdownMenuItem(
                             text = { Text("Scan receipt") },
                             onClick = { menuExpanded = false; onScanReceipt() }
@@ -186,6 +202,10 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item {
+                    InstrumentClusterCard(vehicle = tripVehicle ?: v, fillUps = fillUps, estimate = fuelEstimate)
+                }
+
+                item {
                     // Observed copy of the vehicle, so a new tank size shows at once.
                     EngineCheckInCard(
                         vehicle = tripVehicle ?: v,
@@ -197,23 +217,9 @@ fun DashboardScreen(
                     )
                 }
 
-                item {
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text("Average economy", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                ConsumptionCalculator.formatEconomy(avgEconomy, v),
-                                style = MaterialTheme.typography.headlineMedium
-                            )
-                            if (costPerDistance != null) {
-                                Spacer(Modifier.height(8.dp))
-                                Text(
-                                    "${Formatting.money(costPerDistance, v.currencyCode)} per ${v.distanceUnitLabel} (fuel)",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    }
+                val priceWatch = PriceWatchCalculator.compute(fillUps)
+                if (priceWatch != null) {
+                    item { PriceWatchCard(priceWatch, v) }
                 }
 
                 item {

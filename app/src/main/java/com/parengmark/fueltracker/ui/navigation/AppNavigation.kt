@@ -12,6 +12,10 @@ import com.parengmark.fueltracker.data.FuelRepository
 import com.parengmark.fueltracker.ui.art.ArtStudioScreen
 import com.parengmark.fueltracker.ui.art.ArtStudioViewModel
 import com.parengmark.fueltracker.ui.common.AppViewModelFactory
+import com.parengmark.fueltracker.ui.settings.AchievementsScreen
+import com.parengmark.fueltracker.ui.settings.CarSettingsScreen
+import com.parengmark.fueltracker.ui.settings.CarSettingsViewModel
+import com.parengmark.fueltracker.ui.settings.ShareAppScreen
 import com.parengmark.fueltracker.ui.trip.CheckInScreen
 import com.parengmark.fueltracker.ui.trip.JournalScreen
 import com.parengmark.fueltracker.ui.trip.TripViewModel
@@ -57,6 +61,9 @@ private object Routes {
     const val EXPENSES = "expenses/{vehicleId}"
     const val ART_STUDIO = "artStudio/{vehicleId}"
     const val CHECK_IN = "checkIn/{vehicleId}"
+    const val CAR_SETTINGS = "carSettings/{vehicleId}"
+    const val ACHIEVEMENTS = "achievements/{vehicleId}"
+    const val SHARE_APP = "shareApp"
     const val JOURNAL = "journal/{vehicleId}"
     const val ADD_EXPENSE = "addExpense/{vehicleId}?expenseId={expenseId}&category={category}&note={note}"
 
@@ -75,6 +82,8 @@ private object Routes {
     fun expenses(vehicleId: Long) = "expenses/$vehicleId"
     fun artStudio(vehicleId: Long) = "artStudio/$vehicleId"
     fun checkIn(vehicleId: Long) = "checkIn/$vehicleId"
+    fun carSettings(vehicleId: Long) = "carSettings/$vehicleId"
+    fun achievements(vehicleId: Long) = "achievements/$vehicleId"
     fun journal(vehicleId: Long) = "journal/$vehicleId"
     fun addExpense(
         vehicleId: Long,
@@ -109,7 +118,11 @@ private object LastVehicle {
 }
 
 @Composable
-fun AppNavigation(repository: FuelRepository, startCheckIn: Boolean = false) {
+fun AppNavigation(
+    repository: FuelRepository,
+    startCheckIn: Boolean = false,
+    checkInVehicleId: Long? = null
+) {
     val navController = rememberNavController()
     val factory = AppViewModelFactory(repository)
     val context = LocalContext.current
@@ -120,7 +133,7 @@ fun AppNavigation(repository: FuelRepository, startCheckIn: Boolean = false) {
     LaunchedEffect(startCheckIn) {
         if (!startCheckIn || shortcutHandled) return@LaunchedEffect
         shortcutHandled = true
-        val id = LastVehicle.get(context) ?: return@LaunchedEffect
+        val id = checkInVehicleId ?: LastVehicle.get(context) ?: return@LaunchedEffect
         if (repository.getVehicle(id) == null) return@LaunchedEffect
         navController.navigate(Routes.dashboard(id))
         navController.navigate(Routes.checkIn(id))
@@ -167,6 +180,9 @@ fun AppNavigation(repository: FuelRepository, startCheckIn: Boolean = false) {
                 onOpenArtStudio = { navController.navigate(Routes.artStudio(vehicleId)) },
                 onCheckIn = { navController.navigate(Routes.checkIn(vehicleId)) },
                 onOpenJournal = { navController.navigate(Routes.journal(vehicleId)) },
+                onOpenSettings = { navController.navigate(Routes.carSettings(vehicleId)) },
+                onOpenAchievements = { navController.navigate(Routes.achievements(vehicleId)) },
+                onShareApp = { navController.navigate(Routes.SHARE_APP) },
                 onViewAllFillUps = { navController.navigate(Routes.fillUps(vehicleId)) },
                 onSwitchVehicle = { navController.popBackStack(Routes.VEHICLES, inclusive = false) }
             )
@@ -375,6 +391,35 @@ fun AppNavigation(repository: FuelRepository, startCheckIn: Boolean = false) {
                 onCheckIn = { navController.navigate(Routes.checkIn(vehicleId)) },
                 onBack = { navController.popBackStack() }
             )
+        }
+
+        composable(
+            Routes.CAR_SETTINGS,
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: return@composable
+            val vm: CarSettingsViewModel = viewModel(factory = factory)
+            CarSettingsScreen(
+                viewModel = vm,
+                vehicleId = vehicleId,
+                onOpenAchievements = { navController.navigate(Routes.achievements(vehicleId)) },
+                onShareApp = { navController.navigate(Routes.SHARE_APP) },
+                onOpenArtStudio = { navController.navigate(Routes.artStudio(vehicleId)) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            Routes.ACHIEVEMENTS,
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: return@composable
+            val vm: CarSettingsViewModel = viewModel(factory = factory)
+            AchievementsScreen(viewModel = vm, vehicleId = vehicleId, onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.SHARE_APP) {
+            ShareAppScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.COMPARE_VEHICLES) {

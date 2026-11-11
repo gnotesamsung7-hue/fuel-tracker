@@ -30,7 +30,11 @@ data class Vehicle(
     val pixelArt: String? = null,
     /** Fuel tank size in the vehicle's volume unit -- needed for the
      * "when to top up" estimate. Null until the user sets it. */
-    val tankCapacity: Double? = null
+    val tankCapacity: Double? = null,
+    /** The car's Bluetooth (head unit / adapter) chosen in Car settings. When
+     * the phone connects to it, FillUp+ prompts an engine check-in. */
+    val bluetoothAddress: String? = null,
+    val bluetoothName: String? = null
 ) {
     val distanceUnitLabel: String get() = if (unitSystem == UnitSystem.METRIC) "km" else "mi"
     val volumeUnitLabel: String get() = if (unitSystem == UnitSystem.METRIC) "L" else "gal"

@@ -19,6 +19,9 @@ interface VehicleDao {
     @Query("SELECT * FROM vehicles WHERE id = :id")
     suspend fun getById(id: Long): Vehicle?
 
+    @Query("SELECT * FROM vehicles WHERE bluetoothAddress = :address")
+    suspend fun getByBluetoothAddress(address: String): List<Vehicle>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(vehicle: Vehicle): Long
 

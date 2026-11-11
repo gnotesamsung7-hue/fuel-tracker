@@ -46,6 +46,25 @@ stack rationale.
   Excel (second sheet) and PDF exports.
 - Database v2 -> v3 uses a real migration, so existing logs are kept.
 
+**Car Bluetooth, dashboard look, sharing & extras (v0.7)**
+- Car Bluetooth check-in: pick the car's Bluetooth in Car settings (gear icon
+  on the dashboard). When the phone connects to it, a notification offers an
+  engine check-in with the current fuel estimate (`bluetooth/CarBluetoothReceiver.kt`,
+  20-minute cooldown). Needs the Nearby devices permission on Android 12+.
+- Car-dashboard theme (default): dark instrument-panel background with carbon
+  weave and ghosted dials (`ui/theme/DashboardBackdrop.kt`), amber/cyan accents.
+  "Classic green" is still available under Car settings > Look.
+- Instrument cluster on the dashboard: round fuel and economy gauges.
+- Price watch: latest pump price, change since last fill-up (same octane),
+  and a price-history sparkline.
+- Achievements: 14 pixel-medal badges worked out from your logs.
+- Share FillUp+: in-app QR code (ZXing) and share link to the latest APK.
+- The launcher icon shows the version ("v0.7"): generated at build time by
+  the "Version badge" block in `app/build.gradle.kts`.
+- The "Check in" app shortcut is now created in code, so it also works for
+  the debug (.debug) build.
+- Database v5 -> v6 adds the car Bluetooth fields; data is kept.
+
 **Trip logger, top-up reminders & odometer journal (v0.6)**
 - Engine check-in: each time you start the car, log the odometer and
   (optionally) the fuel gauge and trip type. Big "Engine on: check in" button

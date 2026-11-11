@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher foreground = the fuel drop + the version badge generated at build
+     time (see "Version badge" in app/build.gradle.kts). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_launcher_foreground" />
+    <item android:drawable="@drawable/ic_version_badge" />
+</layer-list>
