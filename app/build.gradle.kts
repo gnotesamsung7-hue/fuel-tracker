@@ -144,7 +144,10 @@ fun versionBadgeXml(versionName: String): String {
     val cy = 71.0
     val pillW = textWidth + 7.0
     val pillH = 5 * px + 6.0
-    fun f(v: Double) = String.format(java.util.Locale.US, "%.2f", v)
+    // Round to 2 decimals. Double.toString always uses "." (never a locale
+    // comma), and plain "java.util..." can't be used here because "java"
+    // means the Gradle java extension inside a build script.
+    fun f(v: Double) = (Math.round(v * 100.0) / 100.0).toString()
 
     val pill = run {
         val l = cx - pillW / 2
