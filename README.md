@@ -46,6 +46,16 @@ stack rationale.
   Excel (second sheet) and PDF exports.
 - Database v2 -> v3 uses a real migration, so existing logs are kept.
 
+**Station map (v0.8)**
+- Nearby fuel stations now open on a map (osmdroid + OpenStreetMap tiles; no
+  API key). Brand-coloured pins (Petron, Shell, Caltex, Phoenix, Seaoil, ...),
+  a "you are here" dot, the nearest station pre-selected in a card with
+  Directions / Log fill-up / Next, "Search this area", a My-location button,
+  3/5/10 km radius and a List view. The map is inverted to a night map in the
+  car-dashboard theme.
+- The Overpass query now includes stations mapped as buildings (out center),
+  plus brand and opening hours; duplicates are merged.
+
 **Car Bluetooth, dashboard look, sharing & extras (v0.7)**
 - Car Bluetooth check-in: pick the car's Bluetooth in Car settings (gear icon
   on the dashboard). When the phone connects to it, a notification offers an

@@ -13,8 +13,8 @@ android {
         applicationId = "com.parengmark.fueltracker"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "0.7.0"
+        versionCode = 8
+        versionName = "0.8.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -94,6 +94,9 @@ dependencies {
 
     // Phase 2: on-device receipt OCR (no network call, no cloud billing needed)
     implementation("com.google.mlkit:text-recognition:16.0.0")
+
+    // Map of nearby fuel stations: OpenStreetMap tiles, no API key or billing
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
 
     // In-app QR code for sharing the download link
     implementation("com.google.zxing:core:3.5.3")

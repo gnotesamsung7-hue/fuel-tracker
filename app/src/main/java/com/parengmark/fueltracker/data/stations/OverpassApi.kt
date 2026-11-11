@@ -25,9 +25,9 @@ object OverpassApi {
         radiusMeters: Int = 5000
     ): List<FuelStation> = withContext(Dispatchers.IO) {
         val query = """
-            [out:json][timeout:20];
-            node["amenity"="fuel"](around:$radiusMeters,$lat,$lon);
-            out body;
+            [out:json][timeout:25];
+            nwr["amenity"="fuel"](around:$radiusMeters,$lat,$lon);
+            out center tags;
         """.trimIndent()
 
         var connection: HttpURLConnection? = null
@@ -55,8 +55,10 @@ object OverpassApi {
 
         for (i in 0 until elements.length()) {
             val el = elements.optJSONObject(i) ?: continue
-            val stationLat = el.optDouble("lat", Double.NaN)
-            val stationLon = el.optDouble("lon", Double.NaN)
+            // Nodes carry lat/lon; stations drawn as buildings (ways) carry a "center".
+            val center = el.optJSONObject("center")
+            val stationLat = el.optDouble("lat", center?.optDouble("lat", Double.NaN) ?: Double.NaN)
+            val stationLon = el.optDouble("lon", center?.optDouble("lon", Double.NaN) ?: Double.NaN)
             if (stationLat.isNaN() || stationLon.isNaN()) continue
 
             val tags = el.optJSONObject("tags")
@@ -71,9 +73,14 @@ object OverpassApi {
                 name = name,
                 lat = stationLat,
                 lon = stationLon,
-                distanceMeters = results[0]
+                distanceMeters = results[0],
+                brand = tags?.optString("brand")?.takeIf { it.isNotBlank() },
+                openingHours = tags?.optString("opening_hours")?.takeIf { it.isNotBlank() }
             )
         }
-        return stations.sortedBy { it.distanceMeters }
+        // The same station can be mapped twice (a pin and a building); keep one.
+        return stations
+            .sortedBy { it.distanceMeters }
+            .distinctBy { "${it.name}|${Math.round(it.lat * 2000)}|${Math.round(it.lon * 2000)}" }
     }
 }
